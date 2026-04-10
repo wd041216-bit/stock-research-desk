@@ -92,6 +92,94 @@ TITLE_NOISE_PHRASES = (
     "Q4 2025",
 )
 
+SECTOR_PROFILES: tuple[dict[str, Any], ...] = (
+    {
+        "match_tokens": ("脑机接口", "bci", "brain-computer", "brain computer"),
+        "sector": "brain-computer interface",
+        "keywords": (
+            "brain-computer interface",
+            "BCI",
+            "neurotechnology",
+            "neurostimulation",
+            "implantable neurotech",
+            "EEG headset",
+            "closed-loop neuromodulation",
+        ),
+        "query_axes": (
+            "listed brain-computer interface companies",
+            "public neurotechnology companies with BCI exposure",
+            "NASDAQ or OTC brain-computer interface stocks",
+            "neurostimulation and brain-computer interface adjacent public names",
+            "FDA clearance, commercial traction, and reimbursement milestones",
+        ),
+        "anchors": (
+            {"company_name": "NeuroPace", "ticker": "NPCE", "market": "US"},
+            {"company_name": "NeuroOne Medical Technologies", "ticker": "NMTC", "market": "US"},
+            {"company_name": "Nexalin Technology", "ticker": "NXL", "market": "US"},
+            {"company_name": "ONWARD Medical", "ticker": "ONWRY", "market": "US"},
+            {"company_name": "Wearable Devices", "ticker": "WLDS", "market": "US"},
+        ),
+        "non_public_reference_names": ("Neuralink", "Synchron", "Blackrock Neurotech", "Paradromics"),
+        "focus_questions": (
+            "which names are truly public and tradable in the target market",
+            "which names have real BCI or neuromodulation product exposure instead of vague concept adjacency",
+            "which names have credible FDA, reimbursement, or commercialization milestones",
+            "which names are only storytelling vehicles without real revenue traction",
+        ),
+    },
+    {
+        "match_tokens": ("人形机器人", "humanoid", "robotics", "机器人"),
+        "sector": "humanoid robotics",
+        "keywords": (
+            "humanoid robotics",
+            "embodied AI",
+            "servo actuator",
+            "robot joint reducer",
+            "machine vision robotics",
+            "industrial robotics",
+        ),
+        "query_axes": (
+            "public humanoid robotics companies",
+            "listed robot component suppliers with humanoid exposure",
+            "actuator reducer servo and machine vision companies for humanoid robotics",
+            "robotics commercialization backlog customer pipeline public companies",
+            "which names are pure-play humanoid vs broad automation proxies",
+        ),
+        "anchors": (),
+        "non_public_reference_names": ("Figure AI", "Agility Robotics", "1X", "Apptronik"),
+        "focus_questions": (
+            "which names are real public investable proxies or pure-play humanoid deployment names",
+            "which names are only broad automation stories without humanoid relevance",
+            "which companies have customer pilots backlog or production milestones",
+        ),
+    },
+    {
+        "match_tokens": ("核电", "nuclear", "smr", "small modular reactor"),
+        "sector": "nuclear and SMR",
+        "keywords": (
+            "nuclear power",
+            "SMR",
+            "small modular reactor",
+            "uranium fuel cycle",
+            "nuclear services",
+            "reactor component supplier",
+        ),
+        "query_axes": (
+            "public SMR companies and nuclear suppliers",
+            "listed uranium and fuel cycle equities",
+            "nuclear service and reactor component public companies",
+            "licensing milestones and deployment backlog for SMR companies",
+            "which names are genuine nuclear exposure vs narrative passengers",
+        ),
+        "anchors": (),
+        "non_public_reference_names": ("X-energy", "TerraPower"),
+        "focus_questions": (
+            "which listed names have actual licensing, fuel, service, or reactor economics",
+            "which names rely mostly on policy narrative without near-term cash flow support",
+        ),
+    },
+)
+
 
 @dataclass(slots=True)
 class WorkspacePaths:
@@ -4346,51 +4434,42 @@ def derive_company_identity(*, market: str, candidate: dict[str, Any], evidence:
     return current_name or current_ticker, current_ticker
 
 
+def default_sector_query_axes(theme: str, market: str) -> list[str]:
+    market_label = "US-listed" if market.upper() == "US" else f"{market.upper()} listed"
+    return [
+        f"{market_label} {theme} companies",
+        f"public companies with {theme} exposure",
+        f"{theme} pure-play vs adjacent infrastructure public names",
+        f"{theme} customer traction backlog commercialization public companies",
+        f"{theme} listed peers valuation milestones and competitive positioning",
+    ]
+
+
 def sector_profile_for(theme: str, market: str) -> dict[str, Any]:
     normalized = theme.strip().lower()
-    if any(token in normalized for token in ["脑机接口", "bci", "brain-computer", "brain computer"]):
-        anchors = [
-            {"company_name": "NeuroPace", "ticker": "NPCE", "market": "US"},
-            {"company_name": "NeuroOne Medical Technologies", "ticker": "NMTC", "market": "US"},
-            {"company_name": "Nexalin Technology", "ticker": "NXL", "market": "US"},
-            {"company_name": "ONWARD Medical", "ticker": "ONWRY", "market": "US"},
-            {"company_name": "Wearable Devices", "ticker": "WLDS", "market": "US"},
-        ]
-        public_labels = [f"{item['company_name']} ({item['ticker']})" for item in anchors if item["market"] == market.upper()]
-        return {
-            "sector": "brain-computer interface",
-            "keywords": [
-                "brain-computer interface",
-                "BCI",
-                "neurotechnology",
-                "neurostimulation",
-                "implantable neurotech",
-                "EEG headset",
-                "closed-loop neuromodulation",
-            ],
-            "query_axes": [
-                "listed brain-computer interface companies",
-                "public neurotechnology companies with BCI exposure",
-                "NASDAQ or OTC brain-computer interface stocks",
-                "neurostimulation and brain-computer interface adjacent public names",
-                "FDA clearance, commercial traction, and reimbursement milestones",
-            ],
-            "listed_anchor_names": public_labels,
-            "non_public_reference_names": ["Neuralink", "Synchron", "Blackrock Neurotech", "Paradromics"],
-            "focus_questions": [
-                "which names are truly public and tradable in the target market",
-                "which names have real BCI or neuromodulation product exposure instead of vague concept adjacency",
-                "which names have credible FDA, reimbursement, or commercialization milestones",
-                "which names are only storytelling vehicles without real revenue traction",
-            ],
-        }
+    for profile in SECTOR_PROFILES:
+        if any(token in normalized for token in profile["match_tokens"]):
+            anchors = [dict(item) for item in profile.get("anchors", ()) if item["market"] == market.upper()]
+            public_labels = [f"{item['company_name']} ({item['ticker']})" for item in anchors]
+            return {
+                "sector": profile["sector"],
+                "keywords": list(profile["keywords"]),
+                "query_axes": list(profile["query_axes"]),
+                "listed_anchor_names": public_labels,
+                "non_public_reference_names": list(profile["non_public_reference_names"]),
+                "focus_questions": list(profile["focus_questions"]),
+            }
     return {
         "sector": theme,
-        "keywords": [],
-        "query_axes": [],
+        "keywords": [theme],
+        "query_axes": default_sector_query_axes(theme, market),
         "listed_anchor_names": [],
         "non_public_reference_names": [],
-        "focus_questions": [],
+        "focus_questions": [
+            "which names are truly public and tradable in the target market",
+            "which names are pure-play exposure versus broad narrative adjacency",
+            "which companies have the clearest commercialization, customer, or regulatory milestones",
+        ],
     }
 
 

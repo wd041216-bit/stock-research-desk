@@ -12,7 +12,7 @@
       "effort": "medium",
       "risk": "low",
       "priority_bucket": 3,
-      "status": "in_progress",
+      "status": "completed",
       "next_action": "Execute the planned step: Add sector-specific query planning for sparse themes beyond BCI.",
       "updated_at": "2026-04-10T08:18:19+00:00"
     },

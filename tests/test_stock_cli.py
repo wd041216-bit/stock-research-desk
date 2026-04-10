@@ -54,6 +54,7 @@ from stock_research_desk.stock_cli import (
     normalize_verdict,
     format_target_price_snapshot,
     derive_company_identity,
+    default_sector_query_axes,
     is_market_compatible_candidate,
     looks_like_us_ticker,
     sector_profile_for,
@@ -364,6 +365,21 @@ def test_sector_profile_for_bci_includes_anchor_names_and_query_axes() -> None:
     assert "brain-computer interface" in profile["keywords"]
     assert any("NeuroPace" in item for item in profile["listed_anchor_names"])
     assert any("public neurotechnology companies" in item for item in profile["query_axes"])
+
+
+def test_sector_profile_for_humanoid_robotics_has_specialized_query_axes() -> None:
+    profile = sector_profile_for("人形机器人", "US")
+    assert profile["sector"] == "humanoid robotics"
+    assert any("humanoid robotics" in item for item in profile["query_axes"])
+    assert any("pure-play humanoid" in item for item in profile["focus_questions"])
+
+
+def test_default_sector_query_axes_support_unknown_sparse_themes() -> None:
+    axes = default_sector_query_axes("卫星互联网", "US")
+    assert any("US-listed 卫星互联网 companies" in item for item in axes)
+    profile = sector_profile_for("卫星互联网", "US")
+    assert profile["keywords"] == ["卫星互联网"]
+    assert len(profile["query_axes"]) >= 5
 
 
 def test_normalize_screen_candidates_filters_non_us_names_when_screening_us() -> None:

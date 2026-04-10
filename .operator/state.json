@@ -1,9 +1,9 @@
 {
   "schema_version": 2,
   "status": "active",
-  "current_item_id": null,
-  "next_action": "Execute the planned step: Clean title-style company names into legal/trading entity names more reliably.",
-  "last_scan_at": "2026-04-10T08:28:19+00:00",
+  "current_item_id": "plan-decomposition-2026f4ae00",
+  "next_action": "Execute the planned step: Ensure screening outputs expose why names were excluded or downgraded.",
+  "last_scan_at": "2026-04-10T08:36:36+00:00",
   "last_checkpoint_at": "2026-04-10T08:36:35+00:00",
   "last_stop_reason": null,
   "last_completed_item_id": "plan-decomposition-b5186b6d44",

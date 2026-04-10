@@ -1025,6 +1025,7 @@ def run_due_watchlist(
                 "markdown_path": artifact["markdown_path"],
                 "verdict": (artifact.get("payload") or {}).get("verdict", "watchlist"),
                 "quick_take": (artifact.get("payload") or {}).get("quick_take", ""),
+                "target_snapshot": format_target_price_snapshot((artifact.get("payload") or {}).get("target_prices") or {}),
             }
         )
     save_watchlist(paths, entries)
@@ -1052,18 +1053,33 @@ def save_watchlist(paths: WorkspacePaths, entries: list[dict[str, Any]]) -> None
 
 
 def render_watchlist_digest_markdown(artifacts: list[dict[str, str]]) -> str:
+    mode = desk_briefing_mode()
+    title = "Weekly Watchlist Wrap" if mode == "weekly" else "Morning Watchlist Brief"
+    top_name = artifacts[0]["identifier"] if artifacts else "n/a"
     lines = [
-        "# Watchlist Digest",
+        f"# {title}",
         "",
         f"- Generated at: `{datetime.now(UTC).isoformat()}`",
+        f"- Refreshed names: `{len(artifacts)}`",
         "",
     ]
+    if artifacts:
+        lines.extend(
+            [
+                "## Desk Summary",
+                f"- Highest-priority refresh: `{top_name}`",
+                f"- Lead verdict: `{artifacts[0].get('verdict', 'watchlist')}`",
+                f"- Lead target snapshot: {artifacts[0].get('target_snapshot', 'n/a')}",
+                "",
+            ]
+        )
     for item in artifacts:
         lines.extend(
             [
                 f"## {item['identifier']}",
                 f"- Verdict: `{item.get('verdict', 'watchlist')}`",
                 f"- Quick take: {item.get('quick_take', '') or 'n/a'}",
+                f"- Target snapshot: {item.get('target_snapshot', '') or 'n/a'}",
                 f"- Report: `{item.get('markdown_path', '')}`",
                 "",
             ]
@@ -1308,18 +1324,11 @@ def execute_email_command(
         }
     if kind == "watchlist_list":
         entries = load_watchlist(paths)
-        body = "Current watchlist:\n\n" + ("\n".join(
-            f"- {entry.get('ticker') or entry.get('stock_name')} | interval={entry.get('interval_spec')} | next={entry.get('next_run_at')}"
-            for entry in entries
-        ) if entries else "- empty")
+        body = render_email_watchlist_roster_reply(entries)
         return {"body": body, "attachments": [str(paths.watchlist_path)] if paths.watchlist_path.exists() else []}
     if kind == "watchlist_run_due":
         result = run_due_watchlist(paths=paths, config=config, limit=10, verbose=verbose)
-        body = f"Processed {result['processed']} due watchlist entries.\n"
-        if result.get("digest_path"):
-            body += f"\nDigest: {result['digest_path']}\n"
-        for item in result["artifacts"]:
-            body += f"- {item['identifier']}: {item['markdown_path']}\n"
+        body = render_email_watchlist_digest_reply(result)
         attachments = [result["digest_path"]] if result.get("digest_path") else []
         attachments.extend(item["markdown_path"] for item in result["artifacts"])
         return {"body": body, "attachments": attachments}
@@ -1331,6 +1340,8 @@ def render_email_research_reply(payload: dict[str, Any], markdown_path: str) -> 
     bull_case = list(payload.get("bull_case") or [])
     risks = list(payload.get("risks") or [])
     lines = [
+        "# Single-Name Desk Note",
+        "",
         f"Research completed for {payload.get('company_name') or payload.get('ticker')}.",
         "",
         f"- Verdict: {payload.get('verdict', 'watchlist')}",
@@ -1352,7 +1363,7 @@ def render_email_research_reply(payload: dict[str, Any], markdown_path: str) -> 
     for key, label in (("short_term", "Short"), ("medium_term", "Medium"), ("long_term", "Long")):
         item = targets.get(key) or {}
         lines.append(f"- {label}: {item.get('price', 'n/a')} | {item.get('horizon', 'n/a')} | {item.get('thesis', '')}")
-    lines.extend(["", f"Attached memo: {markdown_path}"])
+    lines.extend(["", "Desk action:", f"- Attached memo: {markdown_path}"])
     return "\n".join(lines)
 
 
@@ -1361,6 +1372,8 @@ def render_email_screen_reply(*, theme: str, payload: dict[str, Any], markdown_p
     initial_candidates = payload.get("initial_candidates") or []
     stage_one_candidates = payload.get("stage_one_candidates") or []
     lines = [
+        "# Screening Brief",
+        "",
         f"Screening completed for theme: {theme}",
         "",
         f"- Initial candidates: {len(initial_candidates)}",
@@ -1377,9 +1390,70 @@ def render_email_screen_reply(*, theme: str, payload: dict[str, Any], markdown_p
                 f"   screen_score={item.get('screen_score')} | verdict={report_payload.get('verdict', 'watchlist')}",
                 f"   why_now: {item.get('stage_two_note', '') or item.get('rationale', '') or 'n/a'}",
                 f"   quick_take: {report_payload.get('quick_take', '') or 'n/a'}",
+                f"   targets: {format_target_price_snapshot(report_payload.get('target_prices') or {})}",
             ]
         )
-    lines.extend(["", f"Attached screening summary: {markdown_path}"])
+    lines.extend(["", "Desk action:", f"- Attached screening summary: {markdown_path}"])
+    return "\n".join(lines)
+
+
+def desk_briefing_mode(now: datetime | None = None) -> str:
+    reference = now or datetime.now(UTC)
+    return "weekly" if reference.weekday() == 0 else "morning"
+
+
+def format_target_price_snapshot(targets: dict[str, Any]) -> str:
+    if not targets:
+        return "n/a"
+    chunks: list[str] = []
+    for key, label in (("short_term", "ST"), ("medium_term", "MT"), ("long_term", "LT")):
+        item = targets.get(key) or {}
+        if item.get("price"):
+            chunks.append(f"{label} {item.get('price')} ({item.get('horizon', 'n/a')})")
+    return " | ".join(chunks) if chunks else "n/a"
+
+
+def render_email_watchlist_roster_reply(entries: list[dict[str, Any]]) -> str:
+    heading = "# Weekly Coverage Roster" if desk_briefing_mode() == "weekly" else "# Morning Coverage Roster"
+    if not entries:
+        return "\n".join([heading, "", "Current watchlist is empty."])
+    lines = [
+        heading,
+        "",
+        f"- Coverage names: {len(entries)}",
+        "",
+        "Priority queue:",
+    ]
+    for entry in sorted(entries, key=lambda item: item.get("next_run_at", ""))[:12]:
+        label = entry.get("ticker") or entry.get("stock_name")
+        lines.append(
+            f"- {label} | cadence={entry.get('interval_spec')} | next={entry.get('next_run_at')} | last={entry.get('last_run_at') or 'never'}"
+        )
+    return "\n".join(lines)
+
+
+def render_email_watchlist_digest_reply(result: dict[str, Any]) -> str:
+    artifacts = result.get("artifacts") or []
+    heading = "# Weekly Watchlist Wrap" if desk_briefing_mode() == "weekly" else "# Morning Watchlist Brief"
+    lines = [
+        heading,
+        "",
+        f"- Refreshed names: {result.get('processed', 0)}",
+    ]
+    if result.get("digest_path"):
+        lines.append(f"- Attached digest: {result['digest_path']}")
+    lines.extend(["", "Desk highlights:"])
+    if not artifacts:
+        lines.append("- No watchlist names were due in this cycle.")
+        return "\n".join(lines)
+    for item in artifacts[:8]:
+        lines.extend(
+            [
+                f"- {item['identifier']}",
+                f"  verdict={item.get('verdict', 'watchlist')} | {item.get('target_snapshot', 'n/a')}",
+                f"  quick_take={item.get('quick_take', '') or 'n/a'}",
+            ]
+        )
     return "\n".join(lines)
 
 

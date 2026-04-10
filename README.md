@@ -54,6 +54,8 @@ This repo stacks them into one debate-oriented workflow:
 If you want a quick feel for the output, open:
 
 - [Sample Research Memo](docs/sample-memo.md)
+- [Sample Screening Summary](docs/sample-screening.md)
+- [Email Briefing Modes](docs/email-briefings.md)
 - [CLI Workflow](docs/cli-workflow.md)
 - [Source Quality Model](docs/source-quality.md)
 
@@ -144,6 +146,13 @@ Supported email subjects:
 - `watchlist add: 赛腾股份 | 603283.SH | 7d | CN | 中国故事`
 - `watchlist list`
 - `watchlist run-due`
+
+Email replies now come back in desk-style formats:
+
+- `Single-Name Desk Note`
+- `Screening Brief`
+- `Morning Watchlist Brief`
+- `Weekly Watchlist Wrap`
 
 ## Full Workflow
 
@@ -237,6 +246,16 @@ The repo now includes explicit source quality control:
 - preference for official filings, exchanges, and higher-trust media
 - deduplication and relevance filtering for near-name collisions
 - fallback memo generation from ranked evidence instead of raw noisy traces
+
+## Showcase Assets
+
+Useful public-facing assets in this repo:
+
+- [Memo Preview](assets/memo-preview.svg)
+- [Briefing Preview](assets/briefing-preview.svg)
+- [Sample Research Memo](docs/sample-memo.md)
+- [Sample Screening Summary](docs/sample-screening.md)
+- [Submission Batch 1](docs/submission-batch-1.md)
 
 This does not magically make public web data clean. It does make the workflow more stable and less gullible than a bare search wrapper.
 

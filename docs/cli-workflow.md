@@ -71,6 +71,13 @@ The desk will:
 3. execute the workflow locally
 4. reply with a summary and attach the generated memo, screening summary, or digest
 
+Reply formats:
+
+- `Single-Name Desk Note`
+- `Screening Brief`
+- `Morning Watchlist Brief`
+- `Weekly Watchlist Wrap`
+
 ## What Happens
 
 1. The CLI loads prior memory from `memory_palace/` if it exists.

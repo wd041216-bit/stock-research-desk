@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime
 from pathlib import Path
 
 from stock_research_desk.stock_cli import (
@@ -22,6 +23,7 @@ from stock_research_desk.stock_cli import (
     build_comparison_fallback_from_evidence,
     build_sentiment_fallback_from_evidence,
     clean_research_summary,
+    desk_briefing_mode,
     derive_target_prices_from_context,
     derive_role_bullets,
     choose_section_list,
@@ -40,6 +42,7 @@ from stock_research_desk.stock_cli import (
     normalize_target_prices,
     normalize_ticker,
     normalize_verdict,
+    format_target_price_snapshot,
     render_markdown,
     render_agent_trace_summary,
     resolve_think,
@@ -55,6 +58,8 @@ from stock_research_desk.stock_cli import (
     resolve_workspace_paths,
     run_due_watchlist,
     render_watchlist_digest_markdown,
+    render_email_watchlist_digest_reply,
+    render_email_watchlist_roster_reply,
 )
 
 
@@ -677,7 +682,7 @@ def test_render_watchlist_digest_markdown_includes_verdict_and_path() -> None:
             }
         ]
     )
-    assert "# Watchlist Digest" in markdown
+    assert "Watchlist" in markdown
     assert "603283-sh" in markdown
     assert "/tmp/report.md" in markdown
 
@@ -716,6 +721,7 @@ def test_render_email_research_reply_includes_bull_risk_and_targets() -> None:
         },
         "/tmp/report.md",
     )
+    assert "Single-Name Desk Note" in body
     assert "Top bull points" in body
     assert "Key risks" in body
     assert "Short: 45.5" in body
@@ -733,15 +739,93 @@ def test_render_email_screen_reply_includes_why_now_and_counts() -> None:
                     "ticker": "603283.SH",
                     "screen_score": 82,
                     "stage_two_note": "订单和产业趋势的交集更清晰。",
-                    "payload": {"verdict": "watchlist", "quick_take": "值得继续研究。"},
+                    "payload": {
+                        "verdict": "watchlist",
+                        "quick_take": "值得继续研究。",
+                        "target_prices": {"short_term": {"price": "45", "horizon": "1-3个月"}},
+                    },
                 }
             ],
         },
         markdown_path="/tmp/screen.md",
     )
+    assert "Screening Brief" in body
     assert "Initial candidates: 7" in body
     assert "Second-screen pool: 4" in body
     assert "why_now: 订单和产业趋势的交集更清晰。" in body
+    assert "targets: ST 45 (1-3个月)" in body
+
+
+def test_format_target_price_snapshot_collapses_three_horizons() -> None:
+    snapshot = format_target_price_snapshot(
+        {
+            "short_term": {"price": "45", "horizon": "1-3个月"},
+            "medium_term": {"price": "52", "horizon": "3-12个月"},
+            "long_term": {"price": "60", "horizon": "12-36个月"},
+        }
+    )
+    assert "ST 45 (1-3个月)" in snapshot
+    assert "MT 52 (3-12个月)" in snapshot
+    assert "LT 60 (12-36个月)" in snapshot
+
+
+def test_desk_briefing_mode_switches_on_monday() -> None:
+    assert desk_briefing_mode(datetime.fromisoformat("2026-04-13T08:00:00+00:00")) == "weekly"
+    assert desk_briefing_mode(datetime.fromisoformat("2026-04-15T08:00:00+00:00")) == "morning"
+
+
+def test_render_email_watchlist_digest_reply_uses_briefing_format() -> None:
+    body = render_email_watchlist_digest_reply(
+        {
+            "processed": 2,
+            "digest_path": "/tmp/digest.md",
+            "artifacts": [
+                {
+                    "identifier": "603283-sh",
+                    "verdict": "watchlist",
+                    "quick_take": "半导体弹性仍待验证。",
+                    "target_snapshot": "ST 45 (1-3个月)",
+                }
+            ],
+        }
+    )
+    assert "Watchlist" in body
+    assert "Desk highlights" in body
+    assert "target_snapshot" not in body
+    assert "ST 45 (1-3个月)" in body
+
+
+def test_render_email_watchlist_roster_reply_lists_priority_queue() -> None:
+    body = render_email_watchlist_roster_reply(
+        [
+            {
+                "stock_name": "赛腾股份",
+                "ticker": "603283.SH",
+                "interval_spec": "7d",
+                "next_run_at": "2026-04-16T08:00:00+00:00",
+                "last_run_at": None,
+            }
+        ]
+    )
+    assert "Coverage Roster" in body
+    assert "Priority queue" in body
+    assert "603283.SH" in body
+
+
+def test_render_watchlist_digest_markdown_includes_target_snapshot() -> None:
+    markdown = render_watchlist_digest_markdown(
+        [
+            {
+                "identifier": "603283-sh",
+                "markdown_path": "/tmp/report.md",
+                "verdict": "watchlist",
+                "quick_take": "半导体弹性仍待验证。",
+                "target_snapshot": "ST 45 (1-3个月)",
+            }
+        ]
+    )
+    assert "Desk Summary" in markdown
+    assert "Target snapshot" in markdown
 
 
 def test_render_screening_markdown_includes_summary_rank_and_rejects() -> None:

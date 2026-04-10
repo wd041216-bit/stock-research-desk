@@ -60,6 +60,25 @@ BLOCKED_SOURCE_DOMAINS = {
 }
 
 MIN_SOURCE_QUALITY = 36
+US_LISTING_HINTS = {"US", "USA", "NASDAQ", "NYSE", "AMEX", "OTC", "OTCQX", "OTCQB"}
+COMPANY_ACTION_VERBS = (
+    "Announces",
+    "Reports",
+    "Builds",
+    "Secures",
+    "Drives",
+    "Reaffirms",
+    "Demonstrates",
+    "Accepted",
+    "Achieves",
+    "Highlights",
+    "Reinforces",
+    "Launches",
+    "Receives",
+    "Provides",
+    "Completes",
+    "Advances",
+)
 
 
 @dataclass(slots=True)
@@ -749,21 +768,53 @@ def run_screening_pipeline(
         max_fetches=config.max_fetches,
         verbose=verbose,
     )
+    scout_evidence_candidates = build_screening_fallback_candidates(
+        extract_evidence_from_traces([scout.get("tool_traces", [])]),
+        theme=theme,
+        market=market,
+    )
     initial_candidates = normalize_screen_candidates(
         (scout.get("payload") or {}).get("candidates"),
         theme=theme,
         market=market,
     )
+    initial_candidates = combine_candidate_lists(initial_candidates, scout_evidence_candidates, theme=theme, market=market)
+    densified_payload: dict[str, Any] | None = None
+    if len(initial_candidates) < max(3, desired_count * 2):
+        if verbose:
+            print(f"[screen] densifying candidate discovery from {len(initial_candidates)} names")
+        densified_payload = run_screening_scout_densification(
+            client=client,
+            model=config.model,
+            think=config.think,
+            timeout_seconds=config.timeout_seconds,
+            theme=theme,
+            desired_count=desired_count,
+            market=market,
+            seed_tickers=seed_tickers,
+            max_results=max(config.max_results + 2, 7),
+            max_fetches=max(config.max_fetches + 3, 10),
+            existing_candidates=initial_candidates,
+            verbose=verbose,
+        )
+        densified_evidence_candidates = build_screening_fallback_candidates(
+            extract_evidence_from_traces([densified_payload.get("tool_traces", [])]),
+            theme=theme,
+            market=market,
+        )
+        initial_candidates = combine_candidate_lists(
+            initial_candidates,
+            normalize_screen_candidates((densified_payload.get("payload") or {}).get("candidates"), theme=theme, market=market),
+            densified_evidence_candidates,
+            theme=theme,
+            market=market,
+        )
     initial_candidates = merge_seed_candidates(
         candidates=initial_candidates,
         seeds=build_seed_candidates(seed_tickers=seed_tickers, theme=theme, market=market),
     )
     if not initial_candidates:
-        initial_candidates = build_screening_fallback_candidates(
-            extract_evidence_from_traces([scout.get("tool_traces", [])]),
-            theme=theme,
-            market=market,
-        )
+        initial_candidates = scout_evidence_candidates
         initial_candidates = merge_seed_candidates(
             candidates=initial_candidates,
             seeds=build_seed_candidates(seed_tickers=seed_tickers, theme=theme, market=market),
@@ -950,6 +1001,101 @@ def run_screening_scout(
     return {"payload": {"candidates": build_screening_fallback_candidates(extract_evidence_from_traces([tool_traces]), theme=theme, market=market)}, "tool_traces": tool_traces}
 
 
+def run_screening_scout_densification(
+    *,
+    client: Client,
+    model: str,
+    think: str,
+    timeout_seconds: float,
+    theme: str,
+    desired_count: int,
+    market: str,
+    seed_tickers: list[str],
+    max_results: int,
+    max_fetches: int,
+    existing_candidates: list[dict[str, Any]],
+    verbose: bool = False,
+) -> dict[str, Any]:
+    system_prompt = build_screening_scout_prompt(max_results=max_results, max_fetches=max_fetches)
+    user_prompt = build_screening_densification_user_prompt(
+        theme=theme,
+        desired_count=desired_count,
+        market=market,
+        seed_tickers=seed_tickers,
+        existing_candidates=existing_candidates,
+    )
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    tool_traces: list[dict[str, Any]] = []
+    fetch_count = 0
+    if verbose:
+        print("[screen] scout densification")
+    planning_response = chat_with_guard(
+        client,
+        timeout_seconds=timeout_seconds,
+        model=model,
+        messages=messages,
+        tools=[client.web_search, client.web_fetch],
+        think=resolve_think(model, think),
+    )
+    planning_message = planning_response.message
+    tool_calls = planning_message.tool_calls or []
+    for tool_call in tool_calls:
+        function = tool_call.function
+        tool_name = function.name
+        arguments = dict(function.arguments or {})
+        if tool_name == "web_search":
+            arguments["max_results"] = min(int(arguments.get("max_results", max_results)), max_results)
+            result = perform_search_with_fallback(client=client, market=market, **arguments)
+        elif tool_name == "web_fetch":
+            if fetch_count >= max_fetches:
+                result = {"error": "fetch budget exhausted"}
+            else:
+                result = perform_fetch_with_fallback(client=client, **arguments)
+                fetch_count += 1
+        else:
+            result = {"error": f"unsupported tool: {tool_name}"}
+        tool_traces.append({"tool_name": tool_name, "arguments": arguments, "result": result})
+
+    synthesis_prompt = build_screening_densification_synthesis_prompt(
+        theme=theme,
+        desired_count=desired_count,
+        market=market,
+        evidence=extract_evidence_from_traces([tool_traces])[:16],
+        seed_tickers=seed_tickers,
+        existing_candidates=existing_candidates,
+    )
+    try:
+        response = chat_with_guard(
+            client,
+            timeout_seconds=timeout_seconds,
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": synthesis_prompt},
+            ],
+            think=resolve_think(model, think),
+            format="json",
+        )
+        parsed, _ = parse_structured_response(response.message.content or "")
+        if isinstance(parsed, dict):
+            return {"payload": parsed, "tool_traces": tool_traces}
+    except Exception:
+        pass
+    return {
+        "payload": {
+            "candidates": build_screening_fallback_candidates(
+                extract_evidence_from_traces([tool_traces]),
+                theme=theme,
+                market=market,
+            )
+        },
+        "tool_traces": tool_traces,
+    }
+
+
 def run_second_screen_committee(
     *,
     client: Client,
@@ -1127,6 +1273,12 @@ def enrich_screen_candidate(
     avg_quality = 0
     if evidence:
         avg_quality = round(sum(int(item.get("quality") or 0) for item in evidence) / len(evidence))
+    resolved_company_name, resolved_ticker = derive_company_identity(
+        market=market,
+        candidate=candidate,
+        evidence=evidence,
+        note=note,
+    )
     upgraded_score = min(
         98,
         max(
@@ -1137,6 +1289,8 @@ def enrich_screen_candidate(
     enriched = normalize_screen_candidates([candidate], theme=theme, market=market)[0]
     enriched.update(
         {
+            "company_name": resolved_company_name or enriched.get("company_name") or candidate.get("company_name") or "",
+            "ticker": resolved_ticker or enriched.get("ticker") or candidate.get("ticker") or "",
             "screen_score": upgraded_score,
             "source_count": max(int(candidate.get("source_count") or 1), len(evidence)),
             "vertical_summary": clip_text(vertical_summary, 600),
@@ -1766,6 +1920,31 @@ def build_screening_user_prompt(*, theme: str, desired_count: int, market: str, 
     return f"{market_guard} 请围绕这个板块方向去主动联网搜索并寻找股票候选：{json.dumps(payload, ensure_ascii=False)}"
 
 
+def build_screening_densification_user_prompt(
+    *,
+    theme: str,
+    desired_count: int,
+    market: str,
+    seed_tickers: list[str],
+    existing_candidates: list[dict[str, Any]],
+) -> str:
+    payload = {
+        "theme": theme,
+        "desired_count": desired_count,
+        "market": market,
+        "seed_tickers": seed_tickers,
+        "existing_candidates": existing_candidates,
+        "goal": "候选池仍然太稀，需要继续联网扩大覆盖面，优先寻找公开交易、主题相关、且能确认 ticker 的标的。",
+    }
+    return (
+        "继续进行第二轮 theme scout。"
+        "不要重复已有候选。"
+        "优先挖掘公开上市纯度更高或更值得继续研究的名字；如果纯正标的很少，可以补充关键设备、核心上游、神经调控/脑机接口邻近基础设施公司。 "
+        "如果 market=US，必须明确 ticker，并尽量确认是 NASDAQ/NYSE/AMEX/OTC 上可交易的名字。 "
+        f"输入：{json.dumps(payload, ensure_ascii=False)}"
+    )
+
+
 def build_screening_synthesis_prompt(
     *,
     theme: str,
@@ -1787,6 +1966,33 @@ def build_screening_synthesis_prompt(
         "screen_score must be 0-100 and represent whether the stock deserves deeper research, not final conviction. "
         "Prefer listed companies actually connected to the theme, not vague supply-chain mentions. "
         "If market=US, candidates must be tradable US-listed names with US-style tickers, not mainland China A-shares, Hong Kong listings, or private companies. "
+        f"Input: {json.dumps(payload, ensure_ascii=False)}"
+    )
+
+
+def build_screening_densification_synthesis_prompt(
+    *,
+    theme: str,
+    desired_count: int,
+    market: str,
+    evidence: list[dict[str, str]],
+    seed_tickers: list[str],
+    existing_candidates: list[dict[str, Any]],
+) -> str:
+    payload = {
+        "theme": theme,
+        "desired_count": desired_count,
+        "market": market,
+        "seed_tickers": seed_tickers,
+        "existing_candidates": existing_candidates,
+        "evidence": evidence,
+    }
+    return (
+        "Return JSON only with a top-level `candidates` array. "
+        "This is a densification pass, so prioritize adding missing, distinct, listed names rather than repeating existing ones. "
+        "Each candidate must contain: company_name, ticker, market, rationale, screen_score, confidence, source_count, angle. "
+        "Prefer explicit ticker confirmation from exchange pages, investor relations pages, or reputable financial coverage. "
+        "If market=US, tickers must look like US tradable symbols and companies should be publicly listed in the US or OTC market. "
         f"Input: {json.dumps(payload, ensure_ascii=False)}"
     )
 
@@ -4047,6 +4253,74 @@ def looks_like_us_ticker(value: str) -> bool:
     return bool(re.fullmatch(r"[A-Z]{1,5}", text))
 
 
+def candidate_name_needs_cleanup(value: str) -> bool:
+    text = value.strip()
+    if not text:
+        return True
+    if "|" in text or len(text) > 48:
+        return True
+    return any(f" {verb} " in f" {text} " for verb in COMPANY_ACTION_VERBS)
+
+
+def clean_company_name(value: str) -> str:
+    text = sanitize_source_text(value)
+    text = re.split(r"[|:–—]", text, maxsplit=1)[0].strip()
+    verb_pattern = "|".join(re.escape(item) for item in COMPANY_ACTION_VERBS)
+    match = re.match(rf"(.+?)\s+(?:{verb_pattern})\b", text)
+    if match:
+        text = match.group(1).strip()
+    text = re.sub(r"\b(?:NASDAQ|NYSE|AMEX|OTCQX|OTCQB|OTC)\b.*$", "", text, flags=re.IGNORECASE).strip()
+    text = re.sub(r"\s{2,}", " ", text).strip(" -|:")
+    return text
+
+
+def extract_identity_hints(text: str) -> list[tuple[str, str]]:
+    candidates: list[tuple[str, str]] = []
+    patterns = [
+        re.compile(
+            r"([A-Z][A-Za-z0-9&'./-]+(?:\s+[A-Z][A-Za-z0-9&'./-]+){0,6})\s*\((?:NASDAQ|NYSE|AMEX|OTCQX|OTCQB|OTC)[:\s-]*([A-Z]{1,5})\)",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"([A-Z][A-Za-z0-9&'./-]+(?:\s+[A-Z][A-Za-z0-9&'./-]+){0,6}).{0,40}US OTCQX[:\s-]*([A-Z]{1,5})",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"([A-Z][A-Za-z0-9&'./-]+(?:\s+[A-Z][A-Za-z0-9&'./-]+){0,6})\s*[-|:]\s*(?:NASDAQ|NYSE|AMEX|OTCQX|OTCQB|OTC)[:\s-]*([A-Z]{1,5})",
+            re.IGNORECASE,
+        ),
+    ]
+    for pattern in patterns:
+        for match in pattern.finditer(text):
+            company = clean_company_name(match.group(1))
+            ticker = match.group(2).upper().strip()
+            if company and looks_like_us_ticker(ticker):
+                candidates.append((company, ticker))
+    return candidates
+
+
+def derive_company_identity(*, market: str, candidate: dict[str, Any], evidence: list[dict[str, str]], note: str = "") -> tuple[str, str]:
+    current_name = clean_company_name(str(candidate.get("company_name") or ""))
+    current_ticker = normalize_ticker(str(candidate.get("ticker") or ""), "", market) if candidate.get("ticker") else ""
+    texts: list[str] = [current_name, note]
+    for item in evidence:
+        texts.append(str(item.get("title") or ""))
+        texts.append(str(item.get("claim") or ""))
+        texts.append(str(item.get("excerpt") or ""))
+    identity_counts: dict[tuple[str, str], int] = {}
+    for text in texts:
+        for company, ticker in extract_identity_hints(text):
+            identity_counts[(company, ticker)] = identity_counts.get((company, ticker), 0) + 1
+    if identity_counts:
+        best_company, best_ticker = max(identity_counts.items(), key=lambda entry: (entry[1], len(entry[0][0])))[0]
+        return best_company, best_ticker
+    if market.upper() == "US":
+        if candidate_name_needs_cleanup(current_name):
+            current_name = clean_company_name(current_name)
+        return current_name or current_ticker, current_ticker
+    return current_name or current_ticker, current_ticker
+
+
 def is_market_compatible_candidate(*, market: str, ticker: str, company_name: str, market_hint: str) -> bool:
     normalized_market = market.upper().strip()
     ticker_text = ticker.strip().upper()
@@ -4057,7 +4331,7 @@ def is_market_compatible_candidate(*, market: str, ticker: str, company_name: st
             return False
         if any(token in ticker_text for token in [".SH", ".SZ", ".HK"]):
             return False
-        if hint_text and hint_text not in {"US", "USA", "NASDAQ", "NYSE", "AMEX"}:
+        if hint_text and hint_text not in US_LISTING_HINTS:
             return False
         if re.search(r"[\u4e00-\u9fff]", company_text) and not re.search(r"[A-Z]", company_text):
             return False
@@ -4106,6 +4380,29 @@ def merge_seed_candidates(*, candidates: list[dict[str, Any]], seeds: list[dict[
     return merged
 
 
+def combine_candidate_lists(*candidate_lists: list[dict[str, Any]], theme: str, market: str) -> list[dict[str, Any]]:
+    merged_by_id: dict[str, dict[str, Any]] = {}
+    for candidate_list in candidate_lists:
+        for item in normalize_screen_candidates(candidate_list, theme=theme, market=market):
+            identifier = slugify(item.get("ticker") or item.get("company_name") or "")
+            existing = merged_by_id.get(identifier)
+            if not existing:
+                merged_by_id[identifier] = item
+                continue
+            preferred = dict(existing)
+            for key in ("company_name", "ticker", "rationale", "why_now", "why_not_now", "vertical_summary", "horizontal_summary", "diligence_note"):
+                if not preferred.get(key) and item.get(key):
+                    preferred[key] = item[key]
+            preferred["screen_score"] = max(int(existing.get("screen_score") or 0), int(item.get("screen_score") or 0))
+            preferred["source_count"] = max(int(existing.get("source_count") or 0), int(item.get("source_count") or 0))
+            if normalize_confidence(str(item.get("confidence") or "medium")) == "high":
+                preferred["confidence"] = "high"
+            merged_by_id[identifier] = preferred
+    combined = list(merged_by_id.values())
+    combined.sort(key=screen_sort_key, reverse=True)
+    return combined
+
+
 def normalize_screen_candidates(value: Any, *, theme: str, market: str) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
@@ -4121,6 +4418,7 @@ def normalize_screen_candidates(value: Any, *, theme: str, market: str) -> list[
             ticker = normalize_ticker(raw_ticker, inferred_exchange, market)
         else:
             ticker = normalize_ticker(raw_ticker, "", market) if raw_ticker else ""
+        company_name = clean_company_name(company_name or ticker)
         market_hint = str(item.get("market") or market).strip() or market
         if not company_name and not ticker:
             continue
@@ -4140,7 +4438,8 @@ def normalize_screen_candidates(value: Any, *, theme: str, market: str) -> list[
                 "confidence": normalize_confidence(str(item.get("confidence") or "medium")),
                 "source_count": max(1, int(item.get("source_count") or 1)),
                 "angle": str(item.get("angle") or theme).strip() or theme,
-                "why_now": clean_research_summary(str(item.get("why_now") or item.get("rationale") or "")),
+                "why_now": clean_research_summary(str(item.get("why_now") or item.get("rationale") or ""))
+                or str(item.get("why_now") or "").strip(),
                 "why_not_now": clean_research_summary(str(item.get("why_not_now") or "")),
                 "vertical_summary": clean_research_summary(str(item.get("vertical_summary") or "")),
                 "horizontal_summary": clean_research_summary(str(item.get("horizontal_summary") or "")),
@@ -4157,41 +4456,35 @@ def build_screening_fallback_candidates(evidence: list[dict[str, str]], *, theme
     seen: set[str] = set()
     for item in evidence:
         title = f"{item.get('title', '')} {item.get('claim', '')}".strip()
-        company_name = ""
-        ticker = ""
-        match = re.search(r"([A-Za-z\u4e00-\u9fff]+)[(（]?\s*(\d{6})(?:\.?(?:SH|SZ))?[)）]?", title)
-        if match:
-            company_name = match.group(1).strip("-_ ")
-            raw_code = match.group(2)
-            ticker = normalize_ticker(raw_code, "SSE" if raw_code.startswith("6") else "SZSE", market)
-        elif market.upper() == "US":
-            us_match = re.search(r"\b(?:NASDAQ|NYSE|AMEX)[:\s-]*([A-Z]{1,5})\b", title.upper())
-            if not us_match:
-                continue
-            ticker = us_match.group(1)
-            company_name = re.split(r"[|:\-–—(]", str(item.get("title") or "").strip())[0].strip()
-            if not company_name:
-                company_name = ticker
+        excerpt = str(item.get("excerpt") or "")
+        identities: list[tuple[str, str]] = []
+        if market.upper() == "US":
+            identities = extract_identity_hints("\n".join([title, excerpt]))
         else:
-            continue
-        if not is_market_compatible_candidate(market=market, ticker=ticker, company_name=company_name or ticker, market_hint=market):
-            continue
-        identifier = slugify(ticker or company_name)
-        if identifier in seen:
-            continue
-        seen.add(identifier)
-        candidates.append(
-            {
-                "company_name": company_name,
-                "ticker": ticker,
-                "market": market,
-                "rationale": clean_research_summary(item.get("claim", "")) or f"{company_name} 与 {theme} 主题相关，值得继续验证。",
-                "screen_score": min(95, max(45, int(item.get("quality") or 50))),
-                "confidence": "medium",
-                "source_count": 1,
-                "angle": theme,
-            }
-        )
+            match = re.search(r"([A-Za-z\u4e00-\u9fff]+)[(（]?\s*(\d{6})(?:\.?(?:SH|SZ))?[)）]?", title)
+            if match:
+                company_name = match.group(1).strip("-_ ")
+                raw_code = match.group(2)
+                identities = [(company_name, normalize_ticker(raw_code, "SSE" if raw_code.startswith("6") else "SZSE", market))]
+        for company_name, ticker in identities:
+            if not is_market_compatible_candidate(market=market, ticker=ticker, company_name=company_name or ticker, market_hint=market):
+                continue
+            identifier = slugify(ticker or company_name)
+            if identifier in seen:
+                continue
+            seen.add(identifier)
+            candidates.append(
+                {
+                    "company_name": company_name,
+                    "ticker": ticker,
+                    "market": market,
+                    "rationale": clean_research_summary(item.get("claim", "")) or f"{company_name} 与 {theme} 主题相关，值得继续验证。",
+                    "screen_score": min(95, max(45, int(item.get("quality") or 50))),
+                    "confidence": "medium",
+                    "source_count": 1,
+                    "angle": theme,
+                }
+            )
     candidates.sort(key=screen_sort_key, reverse=True)
     return candidates[:12]
 

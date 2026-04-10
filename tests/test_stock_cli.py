@@ -7,6 +7,7 @@ from stock_research_desk.stock_cli import (
     agent_output_outline,
     build_screening_fallback_candidates,
     build_seed_candidates,
+    combine_candidate_lists,
     build_agent_user_prompt,
     build_buy_side_synthesis_prompt,
     build_company_analyst_prompt,
@@ -52,6 +53,7 @@ from stock_research_desk.stock_cli import (
     normalize_ticker,
     normalize_verdict,
     format_target_price_snapshot,
+    derive_company_identity,
     is_market_compatible_candidate,
     looks_like_us_ticker,
     render_markdown,
@@ -102,6 +104,19 @@ def test_merge_seed_candidates_adds_missing_seed_and_keeps_orderable_scores() ->
     )
     assert {item["ticker"] for item in merged} == {"NMTC", "NPCE"}
     assert merged[0]["ticker"] == "NPCE"
+
+
+def test_combine_candidate_lists_prefers_stronger_fields_and_higher_scores() -> None:
+    combined = combine_candidate_lists(
+        [{"company_name": "NeuroPace", "ticker": "NPCE", "market": "US", "screen_score": 70, "source_count": 2, "confidence": "medium"}],
+        [{"company_name": "NeuroPace", "ticker": "NPCE", "market": "US", "screen_score": 85, "source_count": 3, "confidence": "high", "why_now": "RNS traction"}],
+        theme="脑机接口",
+        market="US",
+    )
+    assert len(combined) == 1
+    assert combined[0]["screen_score"] == 85
+    assert combined[0]["confidence"] == "high"
+    assert combined[0]["why_now"] == "RNS traction"
 
 
 def test_normalize_evidence_drops_empty_rows() -> None:
@@ -313,6 +328,23 @@ def test_build_screening_fallback_candidates_extracts_us_exchange_tickers() -> N
     )
     assert candidates[0]["ticker"] == "NPCE"
     assert "NeuroPace" in candidates[0]["company_name"]
+
+
+def test_derive_company_identity_recovers_company_name_and_otc_ticker_from_press_release() -> None:
+    company_name, ticker = derive_company_identity(
+        market="US",
+        candidate={"company_name": "ONWARD Medical Builds Commercial Momentum for the ARC", "ticker": "SKIP"},
+        evidence=[
+            {
+                "title": "ONWARD Medical Builds Commercial Momentum for the ARC-EX System and Reinforces its Brain-Computer Interface Leadership in Q1 2025 | Nasdaq",
+                "claim": "Eindhoven, the Netherlands — ONWARD Medical N.V. (Euronext: ONWD and US OTCQX: ONWRY), the leading neurotechnology company...",
+                "excerpt": "",
+            }
+        ],
+        note="",
+    )
+    assert company_name == "ONWARD Medical N.V."
+    assert ticker == "ONWRY"
 
 
 def test_normalize_screen_candidates_filters_non_us_names_when_screening_us() -> None:

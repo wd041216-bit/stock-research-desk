@@ -1,0 +1,170 @@
+{
+  "schema_version": 2,
+  "items": [
+    {
+      "id": "plan-decomposition-b7d33048a3",
+      "title": "Add sector-specific query planning for sparse themes beyond BCI.",
+      "source": "plan_decomposition",
+      "evidence": [
+        "decomposed from a broad plan"
+      ],
+      "impact": "high",
+      "effort": "medium",
+      "risk": "low",
+      "priority_bucket": 3,
+      "status": "pending",
+      "next_action": "Execute the planned step: Add sector-specific query planning for sparse themes beyond BCI.",
+      "updated_at": "2026-04-10T08:18:19+00:00"
+    },
+    {
+      "id": "plan-decomposition-b5186b6d44",
+      "title": "Clean title-style company names into legal/trading entity names more reliably.",
+      "source": "plan_decomposition",
+      "evidence": [
+        "decomposed from a broad plan"
+      ],
+      "impact": "high",
+      "effort": "medium",
+      "risk": "low",
+      "priority_bucket": 3,
+      "status": "pending",
+      "next_action": "Execute the planned step: Clean title-style company names into legal/trading entity names more reliably.",
+      "updated_at": "2026-04-10T08:18:19+00:00"
+    },
+    {
+      "id": "plan-decomposition-2026f4ae00",
+      "title": "Ensure screening outputs expose why names were excluded or downgraded.",
+      "source": "plan_decomposition",
+      "evidence": [
+        "decomposed from a broad plan"
+      ],
+      "impact": "high",
+      "effort": "medium",
+      "risk": "low",
+      "priority_bucket": 3,
+      "status": "pending",
+      "next_action": "Execute the planned step: Ensure screening outputs expose why names were excluded or downgraded.",
+      "updated_at": "2026-04-10T08:18:19+00:00"
+    },
+    {
+      "id": "plan-decomposition-bd41270d01",
+      "title": "Expand the BCI lexicon with clearer public-vs-private separation and adjacent listed names.",
+      "source": "plan_decomposition",
+      "evidence": [
+        "decomposed from a broad plan"
+      ],
+      "impact": "high",
+      "effort": "medium",
+      "risk": "low",
+      "priority_bucket": 3,
+      "status": "completed",
+      "next_action": "Execute the planned step: Expand the BCI lexicon with clearer public-vs-private separation and adjacent listed names.",
+      "updated_at": "2026-04-10T08:18:19+00:00"
+    },
+    {
+      "id": "plan-decomposition-87605ebb84",
+      "title": "Improve candidate density without relaxing the market-compatibility filters.",
+      "source": "plan_decomposition",
+      "evidence": [
+        "decomposed from a broad plan"
+      ],
+      "impact": "high",
+      "effort": "medium",
+      "risk": "low",
+      "priority_bucket": 3,
+      "status": "pending",
+      "next_action": "Execute the planned step: Improve candidate density without relaxing the market-compatibility filters.",
+      "updated_at": "2026-04-10T08:18:19+00:00"
+    },
+    {
+      "id": "plan-decomposition-be65b4dd06",
+      "title": "Improve target-price confidence handling when the sector lacks strong valuation anchors.",
+      "source": "plan_decomposition",
+      "evidence": [
+        "decomposed from a broad plan"
+      ],
+      "impact": "high",
+      "effort": "medium",
+      "risk": "low",
+      "priority_bucket": 3,
+      "status": "pending",
+      "next_action": "Execute the planned step: Improve target-price confidence handling when the sector lacks strong valuation anchors.",
+      "updated_at": "2026-04-10T08:18:19+00:00"
+    },
+    {
+      "id": "plan-decomposition-55a19c3e6a",
+      "title": "Make final memos acknowledge sector sparsity explicitly.",
+      "source": "plan_decomposition",
+      "evidence": [
+        "decomposed from a broad plan"
+      ],
+      "impact": "high",
+      "effort": "medium",
+      "risk": "low",
+      "priority_bucket": 3,
+      "status": "pending",
+      "next_action": "Execute the planned step: Make final memos acknowledge sector sparsity explicitly.",
+      "updated_at": "2026-04-10T08:18:19+00:00"
+    },
+    {
+      "id": "plan-decomposition-2a028cb2e2",
+      "title": "Make watchlist reruns produce more useful digest deltas.",
+      "source": "plan_decomposition",
+      "evidence": [
+        "decomposed from a broad plan"
+      ],
+      "impact": "high",
+      "effort": "medium",
+      "risk": "low",
+      "priority_bucket": 3,
+      "status": "pending",
+      "next_action": "Execute the planned step: Make watchlist reruns produce more useful digest deltas.",
+      "updated_at": "2026-04-10T08:18:19+00:00"
+    },
+    {
+      "id": "plan-decomposition-c130ca047a",
+      "title": "Prefer explicit exchange or OTC identity evidence over article-title heuristics.",
+      "source": "plan_decomposition",
+      "evidence": [
+        "decomposed from a broad plan"
+      ],
+      "impact": "high",
+      "effort": "medium",
+      "risk": "low",
+      "priority_bucket": 3,
+      "status": "pending",
+      "next_action": "Execute the planned step: Prefer explicit exchange or OTC identity evidence over article-title heuristics.",
+      "updated_at": "2026-04-10T08:18:19+00:00"
+    },
+    {
+      "id": "plan-decomposition-efab6eed59",
+      "title": "Reduce cases where the ticker is correct but the company name is still noisy.",
+      "source": "plan_decomposition",
+      "evidence": [
+        "decomposed from a broad plan"
+      ],
+      "impact": "high",
+      "effort": "medium",
+      "risk": "low",
+      "priority_bucket": 3,
+      "status": "pending",
+      "next_action": "Execute the planned step: Reduce cases where the ticker is correct but the company name is still noisy.",
+      "updated_at": "2026-04-10T08:18:19+00:00"
+    },
+    {
+      "id": "plan-decomposition-9c09da03a4",
+      "title": "Separate public pure-play names from adjacent infrastructure or speculative proxies.",
+      "source": "plan_decomposition",
+      "evidence": [
+        "decomposed from a broad plan"
+      ],
+      "impact": "high",
+      "effort": "medium",
+      "risk": "low",
+      "priority_bucket": 3,
+      "status": "pending",
+      "next_action": "Execute the planned step: Separate public pure-play names from adjacent infrastructure or speculative proxies.",
+      "updated_at": "2026-04-10T08:18:19+00:00"
+    }
+  ]
+}

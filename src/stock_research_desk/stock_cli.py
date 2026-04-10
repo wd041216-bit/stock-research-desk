@@ -79,6 +79,18 @@ COMPANY_ACTION_VERBS = (
     "Completes",
     "Advances",
 )
+TITLE_NOISE_PHRASES = (
+    "Stock Price Today",
+    "Stock Price",
+    "Share Price",
+    "Shares Outstanding",
+    "Investor Relations",
+    "Press Release",
+    "Q1 2025",
+    "Q2 2025",
+    "Q3 2025",
+    "Q4 2025",
+)
 
 
 @dataclass(slots=True)
@@ -1270,6 +1282,10 @@ def enrich_screen_candidate(
         extract_markdown_sections(note, "为什么现在还不能下重注", "Why not now", "主要断点"),
         "仍需继续核实关键经营与估值假设。",
     )
+    exclusion_reason = clip_text(
+        why_not_now or "当前主题纯度、证据质量或 why-now 还不足以进入完整精筛。",
+        220,
+    )
     avg_quality = 0
     if evidence:
         avg_quality = round(sum(int(item.get("quality") or 0) for item in evidence) / len(evidence))
@@ -1297,6 +1313,7 @@ def enrich_screen_candidate(
             "horizontal_summary": clip_text(horizontal_summary, 600),
             "why_now": clip_text(why_now, 280),
             "why_not_now": clip_text(why_not_now, 280),
+            "exclusion_reason": exclusion_reason,
             "evidence_snapshot": evidence,
             "diligence_note": clip_text(clean_research_summary(note), 1200),
             "rationale": clip_text(why_now or clean_research_summary(candidate.get("rationale", "")), 320),
@@ -1905,15 +1922,19 @@ def build_screening_scout_prompt(*, max_results: int, max_fetches: int) -> str:
         "你要从公开网页里为一个板块方向找出值得继续研究的上市公司候选，而不是泛泛罗列概念股。 "
         f"Use no more than {max_results} search results per search and no more than {max_fetches} page fetches total. "
         "优先关注交易所、公司官网、正式公告、权威财经媒体与高质量深度报道。"
+        "先做 sector-specific query planning：根据板块特征主动设计多路查询，既查纯正标的，也查邻近赛道和可比公司。"
+        "如果主题稀疏，不要停在泛泛概念文章上，要继续追问哪个名字是真正上市、真正可交易、真正有产品或商业化牵引。"
     )
 
 
 def build_screening_user_prompt(*, theme: str, desired_count: int, market: str, seed_tickers: list[str]) -> str:
+    sector_profile = sector_profile_for(theme, market)
     payload = {
         "theme": theme,
         "desired_count": desired_count,
         "market": market,
         "seed_tickers": seed_tickers,
+        "sector_profile": sector_profile,
         "goal": "先进行初筛，找出真正值得进入二筛和精筛的股票候选。",
     }
     market_guard = "如果 market=US，只能保留在美国上市或主要在美股交易的公司，禁止把 A 股、港股或私有公司混进候选池。"
@@ -1928,11 +1949,13 @@ def build_screening_densification_user_prompt(
     seed_tickers: list[str],
     existing_candidates: list[dict[str, Any]],
 ) -> str:
+    sector_profile = sector_profile_for(theme, market)
     payload = {
         "theme": theme,
         "desired_count": desired_count,
         "market": market,
         "seed_tickers": seed_tickers,
+        "sector_profile": sector_profile,
         "existing_candidates": existing_candidates,
         "goal": "候选池仍然太稀，需要继续联网扩大覆盖面，优先寻找公开交易、主题相关、且能确认 ticker 的标的。",
     }
@@ -2181,7 +2204,7 @@ def render_screening_markdown(
         if not rejected:
             return "- No clear rejects from the second-screen pool."
         return "\n".join(
-            f"- `{item.get('ticker') or item.get('company_name')}` | score={item.get('screen_score')} | not promoted because: {item.get('rationale', 'research upside was weaker')}"
+            f"- `{item.get('ticker') or item.get('company_name')}` | score={item.get('screen_score')} | not promoted because: {item.get('exclusion_reason') or item.get('why_not_now') or item.get('rationale', 'research upside was weaker')}"
             for item in rejected[:6]
         )
 
@@ -4269,6 +4292,8 @@ def clean_company_name(value: str) -> str:
     match = re.match(rf"(.+?)\s+(?:{verb_pattern})\b", text)
     if match:
         text = match.group(1).strip()
+    for phrase in TITLE_NOISE_PHRASES:
+        text = re.sub(rf"\b{re.escape(phrase)}\b.*$", "", text, flags=re.IGNORECASE).strip()
     text = re.sub(r"\b(?:NASDAQ|NYSE|AMEX|OTCQX|OTCQB|OTC)\b.*$", "", text, flags=re.IGNORECASE).strip()
     text = re.sub(r"\s{2,}", " ", text).strip(" -|:")
     return text
@@ -4319,6 +4344,54 @@ def derive_company_identity(*, market: str, candidate: dict[str, Any], evidence:
             current_name = clean_company_name(current_name)
         return current_name or current_ticker, current_ticker
     return current_name or current_ticker, current_ticker
+
+
+def sector_profile_for(theme: str, market: str) -> dict[str, Any]:
+    normalized = theme.strip().lower()
+    if any(token in normalized for token in ["脑机接口", "bci", "brain-computer", "brain computer"]):
+        anchors = [
+            {"company_name": "NeuroPace", "ticker": "NPCE", "market": "US"},
+            {"company_name": "NeuroOne Medical Technologies", "ticker": "NMTC", "market": "US"},
+            {"company_name": "Nexalin Technology", "ticker": "NXL", "market": "US"},
+            {"company_name": "ONWARD Medical", "ticker": "ONWRY", "market": "US"},
+            {"company_name": "Wearable Devices", "ticker": "WLDS", "market": "US"},
+        ]
+        public_labels = [f"{item['company_name']} ({item['ticker']})" for item in anchors if item["market"] == market.upper()]
+        return {
+            "sector": "brain-computer interface",
+            "keywords": [
+                "brain-computer interface",
+                "BCI",
+                "neurotechnology",
+                "neurostimulation",
+                "implantable neurotech",
+                "EEG headset",
+                "closed-loop neuromodulation",
+            ],
+            "query_axes": [
+                "listed brain-computer interface companies",
+                "public neurotechnology companies with BCI exposure",
+                "NASDAQ or OTC brain-computer interface stocks",
+                "neurostimulation and brain-computer interface adjacent public names",
+                "FDA clearance, commercial traction, and reimbursement milestones",
+            ],
+            "listed_anchor_names": public_labels,
+            "non_public_reference_names": ["Neuralink", "Synchron", "Blackrock Neurotech", "Paradromics"],
+            "focus_questions": [
+                "which names are truly public and tradable in the target market",
+                "which names have real BCI or neuromodulation product exposure instead of vague concept adjacency",
+                "which names have credible FDA, reimbursement, or commercialization milestones",
+                "which names are only storytelling vehicles without real revenue traction",
+            ],
+        }
+    return {
+        "sector": theme,
+        "keywords": [],
+        "query_axes": [],
+        "listed_anchor_names": [],
+        "non_public_reference_names": [],
+        "focus_questions": [],
+    }
 
 
 def is_market_compatible_candidate(*, market: str, ticker: str, company_name: str, market_hint: str) -> bool:
@@ -4441,6 +4514,7 @@ def normalize_screen_candidates(value: Any, *, theme: str, market: str) -> list[
                 "why_now": clean_research_summary(str(item.get("why_now") or item.get("rationale") or ""))
                 or str(item.get("why_now") or "").strip(),
                 "why_not_now": clean_research_summary(str(item.get("why_not_now") or "")),
+                "exclusion_reason": clean_research_summary(str(item.get("exclusion_reason") or item.get("why_not_now") or "")),
                 "vertical_summary": clean_research_summary(str(item.get("vertical_summary") or "")),
                 "horizontal_summary": clean_research_summary(str(item.get("horizontal_summary") or "")),
                 "diligence_note": clean_research_summary(str(item.get("diligence_note") or "")),

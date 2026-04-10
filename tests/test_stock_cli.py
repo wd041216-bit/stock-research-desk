@@ -56,6 +56,7 @@ from stock_research_desk.stock_cli import (
     derive_company_identity,
     is_market_compatible_candidate,
     looks_like_us_ticker,
+    sector_profile_for,
     render_markdown,
     render_agent_trace_summary,
     resolve_think,
@@ -345,6 +346,24 @@ def test_derive_company_identity_recovers_company_name_and_otc_ticker_from_press
     )
     assert company_name == "ONWARD Medical N.V."
     assert ticker == "ONWRY"
+
+
+def test_clean_company_name_style_noise_is_removed_via_identity_resolution() -> None:
+    company_name, ticker = derive_company_identity(
+        market="US",
+        candidate={"company_name": "Nexalin Technology Stock Price Today NXL", "ticker": "NXL"},
+        evidence=[],
+        note="",
+    )
+    assert company_name == "Nexalin Technology"
+    assert ticker == "NXL"
+
+
+def test_sector_profile_for_bci_includes_anchor_names_and_query_axes() -> None:
+    profile = sector_profile_for("脑机接口", "US")
+    assert "brain-computer interface" in profile["keywords"]
+    assert any("NeuroPace" in item for item in profile["listed_anchor_names"])
+    assert any("public neurotechnology companies" in item for item in profile["query_axes"])
 
 
 def test_normalize_screen_candidates_filters_non_us_names_when_screening_us() -> None:

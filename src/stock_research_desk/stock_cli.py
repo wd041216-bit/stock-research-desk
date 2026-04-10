@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import re
+import sys
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -56,6 +57,15 @@ MIN_SOURCE_QUALITY = 36
 
 
 @dataclass(slots=True)
+class WorkspacePaths:
+    workspace_dir: Path
+    reports_dir: Path
+    memory_dir: Path
+    screens_dir: Path
+    watchlist_path: Path
+
+
+@dataclass(slots=True)
 class StockResearchConfig:
     api_key: str
     host: str
@@ -64,8 +74,11 @@ class StockResearchConfig:
     max_results: int
     max_fetches: int
     timeout_seconds: float
+    workspace_dir: Path
     reports_dir: Path
+    screens_dir: Path
     memory_dir: Path
+    watchlist_path: Path
 
 
 @dataclass(slots=True)
@@ -81,44 +94,199 @@ class MemoryContext:
     payload: dict[str, Any]
 
 
-def main() -> None:
-    parser = build_parser()
-    args = parser.parse_args()
-    config = load_config(
-        model=args.model,
-        think=args.think,
-        max_results=args.max_results,
-        max_fetches=args.max_fetches,
-        timeout_seconds=args.timeout_seconds,
-        output_dir=args.output_dir,
-    )
-    artifact = run_stock_research(
-        stock_name=args.stock_name,
-        ticker=args.ticker,
-        market=args.market,
-        angle=args.angle,
-        config=config,
-        verbose=True,
-    )
-    print(f"Saved markdown report to: {artifact['markdown_path']}")
-    print(f"Saved json payload to: {artifact['json_path']}")
-    if artifact.get("memory_path"):
-        print(f"Updated memory context at: {artifact['memory_path']}")
+def main(argv: list[str] | None = None) -> None:
+    raw_args = list(argv if argv is not None else sys.argv[1:])
+    if raw_args and raw_args[0] in {"research", "screen", "watchlist"}:
+        parser = build_command_parser()
+        args = parser.parse_args(raw_args)
+        dispatch_command(args)
+        return
+
+    parser = build_research_parser(implicit=True)
+    args = parser.parse_args(raw_args)
+    args.command = "research"
+    dispatch_command(args)
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run a multi-agent stock research workflow on Ollama Cloud and save a local markdown memo.")
+def build_command_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Cloud-only multi-agent stock research desk with single-name deep dives, sector screening, and watchlist scheduling."
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    research_parser = subparsers.add_parser("research", help="Run a full multi-agent memo for one stock.")
+    build_research_parser(parent=research_parser)
+
+    screen_parser = subparsers.add_parser("screen", help="Screen a sector/theme, run two-stage filtering, then deep research finalists.")
+    screen_parser.add_argument("theme", help='Sector or board direction, for example: "中国机器人"')
+    screen_parser.add_argument("--market", default="CN", help="Market hint, default: CN")
+    screen_parser.add_argument("--count", type=int, default=3, help="Number of final recommendations to produce.")
+    screen_parser.add_argument("--seed-ticker", action="append", default=[], help="Optional ticker seed, can be provided multiple times.")
+    screen_parser.add_argument("--angle", default="", help="Optional screening frame or macro angle.")
+    add_runtime_args(screen_parser)
+
+    watchlist_parser = subparsers.add_parser("watchlist", help="Manage recurring stock analysis on a watchlist.")
+    watchlist_subparsers = watchlist_parser.add_subparsers(dest="watchlist_command", required=True)
+
+    watchlist_add = watchlist_subparsers.add_parser("add", help="Add or update a watchlist entry.")
+    watchlist_add.add_argument("stock_name", help="Company or stock name.")
+    watchlist_add.add_argument("--ticker", help="Optional ticker or exchange symbol hint.")
+    watchlist_add.add_argument("--market", default="CN", help="Market hint, default: CN")
+    watchlist_add.add_argument("--angle", default="", help="Optional research angle.")
+    watchlist_add.add_argument("--interval", default="7d", help="Re-run cadence, e.g. 24h, 3d, 1w.")
+    add_runtime_args(watchlist_add)
+
+    watchlist_list = watchlist_subparsers.add_parser("list", help="Show current watchlist entries.")
+    add_runtime_args(watchlist_list, include_model=False)
+
+    watchlist_remove = watchlist_subparsers.add_parser("remove", help="Remove a watchlist entry by stock name or ticker.")
+    watchlist_remove.add_argument("identifier", help="Stock name or ticker.")
+    add_runtime_args(watchlist_remove, include_model=False)
+
+    watchlist_run_due = watchlist_subparsers.add_parser("run-due", help="Run due watchlist analyses and refresh their schedules.")
+    watchlist_run_due.add_argument("--limit", type=int, default=10, help="Max due entries to process in one run.")
+    add_runtime_args(watchlist_run_due)
+
+    return parser
+
+
+def build_research_parser(parent: argparse.ArgumentParser | None = None, *, implicit: bool = False) -> argparse.ArgumentParser:
+    parser = parent or argparse.ArgumentParser(
+        description="Run a multi-agent stock research workflow on Ollama Cloud and save a local markdown memo."
+    )
     parser.add_argument("stock_name", help="Company or stock name, for example: 赛腾股份")
     parser.add_argument("--ticker", help="Optional ticker or exchange symbol hint.")
     parser.add_argument("--market", default="CN", help="Market hint, default: CN")
     parser.add_argument("--angle", default="", help="Optional research angle or thesis framing.")
-    parser.add_argument("--model", default=os.getenv("STOCK_RESEARCH_DESK_MODEL", DEFAULT_MODEL))
-    parser.add_argument("--think", default=os.getenv("STOCK_RESEARCH_DESK_THINK", "high"))
-    parser.add_argument("--max-results", type=int, default=int(os.getenv("STOCK_RESEARCH_DESK_MAX_RESULTS", "5")))
-    parser.add_argument("--max-fetches", type=int, default=int(os.getenv("STOCK_RESEARCH_DESK_MAX_FETCHES", "6")))
-    parser.add_argument("--timeout-seconds", type=float, default=float(os.getenv("STOCK_RESEARCH_DESK_TIMEOUT_SECONDS", "45")))
-    parser.add_argument("--output-dir", default=os.getenv("STOCK_RESEARCH_DESK_OUTPUT_DIR", "reports"))
+    add_runtime_args(parser)
     return parser
+
+
+def add_runtime_args(parser: argparse.ArgumentParser, *, include_model: bool = True) -> None:
+    if include_model:
+        parser.add_argument("--model", default=os.getenv("STOCK_RESEARCH_DESK_MODEL", DEFAULT_MODEL))
+        parser.add_argument("--think", default=os.getenv("STOCK_RESEARCH_DESK_THINK", "high"))
+        parser.add_argument("--max-results", type=int, default=int(os.getenv("STOCK_RESEARCH_DESK_MAX_RESULTS", "5")))
+        parser.add_argument("--max-fetches", type=int, default=int(os.getenv("STOCK_RESEARCH_DESK_MAX_FETCHES", "6")))
+        parser.add_argument("--timeout-seconds", type=float, default=float(os.getenv("STOCK_RESEARCH_DESK_TIMEOUT_SECONDS", "45")))
+    parser.add_argument("--output-dir", default=os.getenv("STOCK_RESEARCH_DESK_OUTPUT_DIR", "reports"))
+
+
+def dispatch_command(args: argparse.Namespace) -> None:
+    if args.command == "research":
+        config = load_config(
+            model=args.model,
+            think=args.think,
+            max_results=args.max_results,
+            max_fetches=args.max_fetches,
+            timeout_seconds=args.timeout_seconds,
+            output_dir=args.output_dir,
+        )
+        artifact = run_stock_research(
+            stock_name=args.stock_name,
+            ticker=args.ticker,
+            market=args.market,
+            angle=args.angle,
+            config=config,
+            verbose=True,
+        )
+        print(f"Saved markdown report to: {artifact['markdown_path']}")
+        print(f"Saved json payload to: {artifact['json_path']}")
+        if artifact.get("memory_path"):
+            print(f"Updated memory context at: {artifact['memory_path']}")
+        return
+
+    if args.command == "screen":
+        config = load_config(
+            model=args.model,
+            think=args.think,
+            max_results=args.max_results,
+            max_fetches=args.max_fetches,
+            timeout_seconds=args.timeout_seconds,
+            output_dir=args.output_dir,
+        )
+        artifact = run_screening_pipeline(
+            theme=args.theme,
+            desired_count=args.count,
+            market=args.market,
+            angle=args.angle,
+            seed_tickers=args.seed_ticker,
+            config=config,
+            verbose=True,
+        )
+        print(f"Saved screening markdown to: {artifact['markdown_path']}")
+        print(f"Saved screening json to: {artifact['json_path']}")
+        for path in artifact.get("report_paths", []):
+            print(f"Generated finalist memo: {path}")
+        return
+
+    if args.command == "watchlist":
+        paths = resolve_workspace_paths(args.output_dir)
+        if args.watchlist_command == "add":
+            entry = add_watchlist_entry(
+                paths=paths,
+                stock_name=args.stock_name,
+                ticker=args.ticker,
+                market=args.market,
+                angle=args.angle,
+                interval_spec=args.interval,
+            )
+            print(f"Saved watchlist entry: {entry['identifier']}")
+            print(f"Next run at: {entry['next_run_at']}")
+            return
+        if args.watchlist_command == "list":
+            render_watchlist(paths)
+            return
+        if args.watchlist_command == "remove":
+            removed = remove_watchlist_entry(paths, args.identifier)
+            if removed:
+                print(f"Removed watchlist entry: {removed}")
+            else:
+                print(f"No watchlist entry matched: {args.identifier}")
+            return
+        if args.watchlist_command == "run-due":
+            config = load_config(
+                model=args.model,
+                think=args.think,
+                max_results=args.max_results,
+                max_fetches=args.max_fetches,
+                timeout_seconds=args.timeout_seconds,
+                output_dir=args.output_dir,
+            )
+            result = run_due_watchlist(paths=paths, config=config, limit=args.limit, verbose=True)
+            print(f"Processed {result['processed']} due entries.")
+            for item in result["artifacts"]:
+                print(f"- {item['identifier']}: {item['markdown_path']}")
+            return
+
+    raise RuntimeError(f"Unsupported command: {args.command}")
+
+
+def default_workspace_home() -> Path:
+    configured = os.getenv("STOCK_RESEARCH_DESK_HOME", "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return (Path.home() / "Desktop" / "Stock Research Desk").resolve()
+
+
+def resolve_workspace_paths(output_dir: str) -> WorkspacePaths:
+    workspace_dir = default_workspace_home()
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    output_path = Path(output_dir).expanduser()
+    reports_dir = output_path.resolve() if output_path.is_absolute() else (workspace_dir / output_path).resolve()
+    memory_dir = (workspace_dir / "memory_palace").resolve()
+    screens_dir = (workspace_dir / "screenings").resolve()
+    watchlist_path = (workspace_dir / "watchlist.json").resolve()
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    memory_dir.mkdir(parents=True, exist_ok=True)
+    screens_dir.mkdir(parents=True, exist_ok=True)
+    return WorkspacePaths(
+        workspace_dir=workspace_dir,
+        reports_dir=reports_dir,
+        memory_dir=memory_dir,
+        screens_dir=screens_dir,
+        watchlist_path=watchlist_path,
+    )
 
 
 def load_config(
@@ -139,11 +307,7 @@ def load_config(
     host = os.getenv("STOCK_RESEARCH_DESK_OLLAMA_HOST", DEFAULT_HOST).rstrip("/")
     if "127.0.0.1" in host or "localhost" in host:
         raise RuntimeError("This branch is configured for Ollama Cloud only. Do not point it at a local Ollama host.")
-    root = Path(__file__).resolve().parents[2]
-    reports_dir = (root / output_dir).resolve() if not Path(output_dir).is_absolute() else Path(output_dir)
-    reports_dir.mkdir(parents=True, exist_ok=True)
-    memory_dir = (root / "memory_palace").resolve()
-    memory_dir.mkdir(parents=True, exist_ok=True)
+    paths = resolve_workspace_paths(output_dir)
     return StockResearchConfig(
         api_key=api_key,
         host=host,
@@ -152,8 +316,11 @@ def load_config(
         max_results=max_results,
         max_fetches=max_fetches,
         timeout_seconds=timeout_seconds,
-        reports_dir=reports_dir,
-        memory_dir=memory_dir,
+        workspace_dir=paths.workspace_dir,
+        reports_dir=paths.reports_dir,
+        screens_dir=paths.screens_dir,
+        memory_dir=paths.memory_dir,
+        watchlist_path=paths.watchlist_path,
     )
 
 
@@ -467,7 +634,341 @@ def run_stock_research(
     if verbose:
         elapsed = round(time.perf_counter() - started, 1)
         print(f"[stock-research] completed in {elapsed}s")
-    return {"markdown_path": str(markdown_path), "json_path": str(json_path), "memory_path": str(memory_path)}
+    return {
+        "markdown_path": str(markdown_path),
+        "json_path": str(json_path),
+        "memory_path": str(memory_path),
+        "payload": normalized,
+    }
+
+
+def run_screening_pipeline(
+    *,
+    theme: str,
+    desired_count: int,
+    market: str,
+    angle: str,
+    seed_tickers: list[str],
+    config: StockResearchConfig,
+    verbose: bool = False,
+) -> dict[str, Any]:
+    client = Client(
+        host=config.host,
+        headers={"Authorization": f"Bearer {config.api_key}"},
+        timeout=config.timeout_seconds,
+    )
+    if verbose:
+        print(f"[screen] theme={theme} market={market} desired_count={desired_count}")
+
+    scout = run_screening_scout(
+        client=client,
+        model=config.model,
+        think=config.think,
+        theme=theme,
+        desired_count=desired_count,
+        market=market,
+        seed_tickers=seed_tickers,
+        max_results=config.max_results,
+        max_fetches=config.max_fetches,
+        verbose=verbose,
+    )
+    initial_candidates = normalize_screen_candidates(
+        (scout.get("payload") or {}).get("candidates"),
+        theme=theme,
+        market=market,
+    )
+    if not initial_candidates:
+        initial_candidates = build_screening_fallback_candidates(
+            extract_evidence_from_traces([scout.get("tool_traces", [])]),
+            theme=theme,
+            market=market,
+        )
+    stage_one_count = min(max(desired_count * 3, desired_count + 2), len(initial_candidates))
+    stage_one = initial_candidates[:stage_one_count]
+
+    shortlist = run_second_screen_committee(
+        client=client,
+        model=config.model,
+        think=config.think,
+        theme=theme,
+        market=market,
+        desired_count=desired_count,
+        candidates=stage_one,
+    )
+    finalists = normalize_screen_candidates(shortlist.get("recommended"), theme=theme, market=market)[:desired_count]
+    if not finalists:
+        finalists = stage_one[:desired_count]
+
+    finalist_artifacts: list[dict[str, Any]] = []
+    for index, candidate in enumerate(finalists, start=1):
+        run_angle = candidate.get("angle") or angle or theme
+        if verbose:
+            print(f"[screen] final pass {index}/{len(finalists)}: {candidate['company_name']} {candidate.get('ticker', '')}".strip())
+        artifact = run_stock_research(
+            stock_name=candidate["company_name"],
+            ticker=candidate.get("ticker"),
+            market=candidate.get("market") or market,
+            angle=run_angle,
+            config=config,
+            verbose=verbose,
+        )
+        finalist_artifacts.append(
+            {
+                "company_name": candidate["company_name"],
+                "ticker": candidate.get("ticker", ""),
+                "screen_score": candidate.get("screen_score", 50),
+                "stage_two_note": candidate.get("rationale", ""),
+                "markdown_path": artifact["markdown_path"],
+                "json_path": artifact["json_path"],
+                "payload": artifact.get("payload", {}),
+            }
+        )
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    slug = slugify(theme)
+    markdown_path = config.screens_dir / f"{timestamp}-{slug}-screening.md"
+    json_path = config.screens_dir / f"{timestamp}-{slug}-screening.json"
+    summary_payload = {
+        "theme": theme,
+        "market": market,
+        "desired_count": desired_count,
+        "seed_tickers": seed_tickers,
+        "initial_candidates": initial_candidates,
+        "stage_one_candidates": stage_one,
+        "finalists": finalist_artifacts,
+        "generated_at": datetime.now(UTC).isoformat(),
+    }
+    markdown_path.write_text(
+        render_screening_markdown(
+            theme=theme,
+            market=market,
+            stage_one_candidates=stage_one,
+            finalists=finalist_artifacts,
+        ),
+        encoding="utf-8",
+    )
+    json_path.write_text(json.dumps(summary_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {
+        "markdown_path": str(markdown_path),
+        "json_path": str(json_path),
+        "report_paths": [item["markdown_path"] for item in finalist_artifacts],
+        "payload": summary_payload,
+    }
+
+
+def run_screening_scout(
+    *,
+    client: Client,
+    model: str,
+    think: str,
+    theme: str,
+    desired_count: int,
+    market: str,
+    seed_tickers: list[str],
+    max_results: int,
+    max_fetches: int,
+    verbose: bool = False,
+) -> dict[str, Any]:
+    system_prompt = build_screening_scout_prompt(max_results=max_results, max_fetches=max_fetches)
+    user_prompt = build_screening_user_prompt(theme=theme, desired_count=desired_count, market=market, seed_tickers=seed_tickers)
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    tool_traces: list[dict[str, Any]] = []
+    fetch_count = 0
+    if verbose:
+        print("[screen] scouting candidates")
+    planning_response = client.chat(
+        model=model,
+        messages=messages,
+        tools=[client.web_search, client.web_fetch],
+        think=resolve_think(model, think),
+    )
+    planning_message = planning_response.message
+    tool_calls = planning_message.tool_calls or []
+    for tool_call in tool_calls:
+        function = tool_call.function
+        tool_name = function.name
+        arguments = dict(function.arguments or {})
+        if tool_name == "web_search":
+            arguments["max_results"] = min(int(arguments.get("max_results", max_results)), max_results)
+            result = client.web_search(**arguments).model_dump()
+        elif tool_name == "web_fetch":
+            if fetch_count >= max_fetches:
+                result = {"error": "fetch budget exhausted"}
+            else:
+                result = client.web_fetch(**arguments).model_dump()
+                fetch_count += 1
+        else:
+            result = {"error": f"unsupported tool: {tool_name}"}
+        tool_traces.append({"tool_name": tool_name, "arguments": arguments, "result": result})
+
+    synthesis_prompt = build_screening_synthesis_prompt(
+        theme=theme,
+        desired_count=desired_count,
+        market=market,
+        evidence=extract_evidence_from_traces([tool_traces])[:10],
+        seed_tickers=seed_tickers,
+    )
+    try:
+        response = client.chat(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": synthesis_prompt},
+            ],
+            think=resolve_think(model, think),
+            format="json",
+        )
+        parsed, _ = parse_structured_response(response.message.content or "")
+        if isinstance(parsed, dict):
+            return {"payload": parsed, "tool_traces": tool_traces}
+    except Exception:
+        pass
+    return {"payload": {"candidates": build_screening_fallback_candidates(extract_evidence_from_traces([tool_traces]), theme=theme, market=market)}, "tool_traces": tool_traces}
+
+
+def run_second_screen_committee(
+    *,
+    client: Client,
+    model: str,
+    think: str,
+    theme: str,
+    market: str,
+    desired_count: int,
+    candidates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    prompt = build_second_screen_prompt(theme=theme, market=market, desired_count=desired_count, candidates=candidates)
+    fallback = {"recommended": sorted(candidates, key=screen_sort_key, reverse=True)[:desired_count]}
+    try:
+        response = client.chat(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a disciplined stock-screening committee. Return JSON only.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            think=resolve_think(model, think),
+            format="json",
+        )
+        parsed, _ = parse_structured_response(response.message.content or "")
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+    return fallback
+
+
+def add_watchlist_entry(
+    *,
+    paths: WorkspacePaths,
+    stock_name: str,
+    ticker: str | None,
+    market: str,
+    angle: str,
+    interval_spec: str,
+) -> dict[str, Any]:
+    entries = load_watchlist(paths)
+    interval_hours = parse_interval_hours(interval_spec)
+    identifier = slugify(ticker or stock_name)
+    now = datetime.now(UTC)
+    payload = {
+        "identifier": identifier,
+        "stock_name": stock_name,
+        "ticker": ticker or "",
+        "market": market,
+        "angle": angle,
+        "interval_spec": interval_spec,
+        "interval_hours": interval_hours,
+        "next_run_at": now.isoformat(),
+        "last_run_at": None,
+        "last_report_path": "",
+    }
+    replaced = False
+    for index, entry in enumerate(entries):
+        if entry.get("identifier") == identifier:
+            entries[index] = payload
+            replaced = True
+            break
+    if not replaced:
+        entries.append(payload)
+    save_watchlist(paths, entries)
+    return payload
+
+
+def render_watchlist(paths: WorkspacePaths) -> None:
+    entries = load_watchlist(paths)
+    if not entries:
+        print("Watchlist is empty.")
+        return
+    for entry in sorted(entries, key=lambda item: item.get("next_run_at", "")):
+        label = entry.get("ticker") or entry.get("stock_name")
+        print(
+            f"- {label} | interval={entry.get('interval_spec')} | next={entry.get('next_run_at')} | "
+            f"last={entry.get('last_run_at') or 'never'}"
+        )
+
+
+def remove_watchlist_entry(paths: WorkspacePaths, identifier: str) -> str | None:
+    entries = load_watchlist(paths)
+    needle = slugify(identifier)
+    kept = [entry for entry in entries if entry.get("identifier") != needle and slugify(entry.get("stock_name", "")) != needle]
+    if len(kept) == len(entries):
+        return None
+    save_watchlist(paths, kept)
+    return identifier
+
+
+def run_due_watchlist(
+    *,
+    paths: WorkspacePaths,
+    config: StockResearchConfig,
+    limit: int,
+    verbose: bool = False,
+) -> dict[str, Any]:
+    entries = load_watchlist(paths)
+    now = datetime.now(UTC)
+    processed = 0
+    artifacts: list[dict[str, str]] = []
+    for entry in sorted(entries, key=lambda item: item.get("next_run_at", "")):
+        if processed >= limit:
+            break
+        next_run_at = parse_iso_datetime(entry.get("next_run_at"))
+        if next_run_at and next_run_at > now:
+            continue
+        artifact = run_stock_research(
+            stock_name=entry["stock_name"],
+            ticker=entry.get("ticker") or None,
+            market=entry.get("market") or "CN",
+            angle=entry.get("angle") or "",
+            config=config,
+            verbose=verbose,
+        )
+        processed += 1
+        entry["last_run_at"] = now.isoformat()
+        entry["last_report_path"] = artifact["markdown_path"]
+        entry["next_run_at"] = (now.timestamp() + int(entry.get("interval_hours", 24)) * 3600)
+        entry["next_run_at"] = datetime.fromtimestamp(entry["next_run_at"], UTC).isoformat()
+        artifacts.append({"identifier": entry["identifier"], "markdown_path": artifact["markdown_path"]})
+    save_watchlist(paths, entries)
+    return {"processed": processed, "artifacts": artifacts}
+
+
+def load_watchlist(paths: WorkspacePaths) -> list[dict[str, Any]]:
+    if not paths.watchlist_path.exists():
+        return []
+    try:
+        payload = json.loads(paths.watchlist_path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return payload if isinstance(payload, list) else []
+
+
+def save_watchlist(paths: WorkspacePaths, entries: list[dict[str, Any]]) -> None:
+    paths.watchlist_path.write_text(json.dumps(entries, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def build_agent_user_prompt(
@@ -488,6 +989,106 @@ def build_agent_user_prompt(
         "memory_context": summarize_memory_context(memory_context),
     }
     return f"研究这个标的并完成指定目标。可以主动联网搜索与抓取官方网页。输入：{json.dumps(payload, ensure_ascii=False)}"
+
+
+def build_screening_scout_prompt(*, max_results: int, max_fetches: int) -> str:
+    return (
+        "你是 buy-side 的主题筛股 scout。"
+        "你要从公开网页里为一个板块方向找出值得继续研究的上市公司候选，而不是泛泛罗列概念股。 "
+        f"Use no more than {max_results} search results per search and no more than {max_fetches} page fetches total. "
+        "优先关注交易所、公司官网、正式公告、权威财经媒体与高质量深度报道。"
+    )
+
+
+def build_screening_user_prompt(*, theme: str, desired_count: int, market: str, seed_tickers: list[str]) -> str:
+    payload = {
+        "theme": theme,
+        "desired_count": desired_count,
+        "market": market,
+        "seed_tickers": seed_tickers,
+        "goal": "先进行初筛，找出真正值得进入二筛和精筛的股票候选。",
+    }
+    return f"请围绕这个板块方向去主动联网搜索并寻找股票候选：{json.dumps(payload, ensure_ascii=False)}"
+
+
+def build_screening_synthesis_prompt(
+    *,
+    theme: str,
+    desired_count: int,
+    market: str,
+    evidence: list[dict[str, str]],
+    seed_tickers: list[str],
+) -> str:
+    payload = {
+        "theme": theme,
+        "desired_count": desired_count,
+        "market": market,
+        "seed_tickers": seed_tickers,
+        "evidence": evidence,
+    }
+    return (
+        "Return JSON only with a top-level `candidates` array. "
+        "Each candidate must contain: company_name, ticker, market, rationale, screen_score, confidence, source_count, angle. "
+        "screen_score must be 0-100 and represent whether the stock deserves deeper research, not final conviction. "
+        "Prefer listed companies actually connected to the theme, not vague supply-chain mentions. "
+        f"Input: {json.dumps(payload, ensure_ascii=False)}"
+    )
+
+
+def build_second_screen_prompt(*, theme: str, market: str, desired_count: int, candidates: list[dict[str, Any]]) -> str:
+    payload = {
+        "theme": theme,
+        "market": market,
+        "desired_count": desired_count,
+        "candidates": candidates,
+    }
+    return (
+        "Return JSON only with a top-level `recommended` array. "
+        "Select the few names most worth full deep-research work. "
+        "Each recommended item must contain: company_name, ticker, market, rationale, screen_score, confidence, angle. "
+        "Favor names with cleaner business linkage, better research upside, and clearer why-now framing. "
+        f"Input: {json.dumps(payload, ensure_ascii=False)}"
+    )
+
+
+def render_screening_markdown(
+    *,
+    theme: str,
+    market: str,
+    stage_one_candidates: list[dict[str, Any]],
+    finalists: list[dict[str, Any]],
+) -> str:
+    stage_one_block = "\n".join(
+        f"- `{item.get('ticker') or item.get('company_name')}` | score={item.get('screen_score')} | {item.get('rationale', '')}"
+        for item in stage_one_candidates
+    ) or "- 初筛没有稳定返回候选。"
+    finalist_block = "\n".join(
+        "\n".join(
+            [
+                f"### {item.get('company_name')} `{item.get('ticker', '')}`",
+                f"- 初筛分数：{item.get('screen_score', '')}",
+                f"- 二筛理由：{item.get('stage_two_note', '') or '待补充'}",
+                f"- 研究结论：{((item.get('payload') or {}).get('verdict') or 'watchlist')}",
+                f"- 快速判断：{((item.get('payload') or {}).get('quick_take') or '待补充')}",
+                f"- 报告路径：`{item.get('markdown_path', '')}`",
+            ]
+        )
+        for item in finalists
+    ) or "- 没有进入精筛的候选。"
+    return "\n".join(
+        [
+            f"# {theme} 筛股报告",
+            "",
+            f"- 市场：`{market}`",
+            f"- 生成时间：`{datetime.now(UTC).isoformat()}`",
+            "",
+            "## 初筛 / 二筛候选池",
+            stage_one_block,
+            "",
+            "## 精筛推荐",
+            finalist_block,
+        ]
+    )
 
 
 def build_market_analyst_prompt(max_results: int, max_fetches: int) -> str:
@@ -2341,6 +2942,102 @@ def fill_missing_target_prices(
             target["thesis"] = str(backup.get("thesis") or "").strip()
         base[key] = target
     return base
+
+
+def parse_interval_hours(value: str) -> int:
+    text = value.strip().lower()
+    match = re.fullmatch(r"(\d+)\s*([hdw])", text)
+    if not match:
+        raise RuntimeError("Interval must look like 24h, 3d, or 1w.")
+    quantity = int(match.group(1))
+    unit = match.group(2)
+    multipliers = {"h": 1, "d": 24, "w": 24 * 7}
+    return quantity * multipliers[unit]
+
+
+def parse_iso_datetime(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value))
+    except Exception:
+        return None
+
+
+def screen_sort_key(item: dict[str, Any]) -> tuple[int, int, int]:
+    score = int(item.get("screen_score") or 0)
+    source_count = int(item.get("source_count") or 0)
+    confidence = normalize_confidence(str(item.get("confidence") or "medium"))
+    confidence_rank = {"low": 1, "medium": 2, "high": 3}.get(confidence, 2)
+    return (score, source_count, confidence_rank)
+
+
+def normalize_screen_candidates(value: Any, *, theme: str, market: str) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    seen: set[str] = set()
+    normalized: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        company_name = str(item.get("company_name") or item.get("name") or "").strip()
+        raw_ticker = str(item.get("ticker") or "").strip()
+        if raw_ticker and market.upper() == "CN" and raw_ticker.isdigit():
+            inferred_exchange = "SSE" if raw_ticker.startswith(("5", "6", "9")) else "SZSE"
+            ticker = normalize_ticker(raw_ticker, inferred_exchange, market)
+        else:
+            ticker = normalize_ticker(raw_ticker, "", market) if raw_ticker else ""
+        if not company_name and not ticker:
+            continue
+        identifier = slugify(ticker or company_name)
+        if identifier in seen:
+            continue
+        seen.add(identifier)
+        normalized.append(
+            {
+                "company_name": company_name or ticker,
+                "ticker": ticker,
+                "market": str(item.get("market") or market).strip() or market,
+                "rationale": clean_research_summary(str(item.get("rationale") or item.get("why") or f"{company_name or ticker} 值得进一步研究。")),
+                "screen_score": max(0, min(100, int(item.get("screen_score") or 50))),
+                "confidence": normalize_confidence(str(item.get("confidence") or "medium")),
+                "source_count": max(1, int(item.get("source_count") or 1)),
+                "angle": str(item.get("angle") or theme).strip() or theme,
+            }
+        )
+    normalized.sort(key=screen_sort_key, reverse=True)
+    return normalized
+
+
+def build_screening_fallback_candidates(evidence: list[dict[str, str]], *, theme: str, market: str) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in evidence:
+        title = f"{item.get('title', '')} {item.get('claim', '')}".strip()
+        match = re.search(r"([A-Za-z\u4e00-\u9fff]+)[(（]?\s*(\d{6})(?:\.?(?:SH|SZ))?[)）]?", title)
+        if not match:
+            continue
+        company_name = match.group(1).strip("-_ ")
+        raw_code = match.group(2)
+        ticker = normalize_ticker(raw_code, "SSE" if raw_code.startswith("6") else "SZSE", market)
+        identifier = slugify(ticker or company_name)
+        if identifier in seen:
+            continue
+        seen.add(identifier)
+        candidates.append(
+            {
+                "company_name": company_name,
+                "ticker": ticker,
+                "market": market,
+                "rationale": clean_research_summary(item.get("claim", "")) or f"{company_name} 与 {theme} 主题相关，值得继续验证。",
+                "screen_score": min(95, max(45, int(item.get("quality") or 50))),
+                "confidence": "medium",
+                "source_count": 1,
+                "angle": theme,
+            }
+        )
+    candidates.sort(key=screen_sort_key, reverse=True)
+    return candidates[:12]
 
 
 def fetch_latest_price(ticker: str) -> float | None:

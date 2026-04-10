@@ -2,12 +2,18 @@ import pytest
 from pathlib import Path
 
 from stock_research_desk.stock_cli import (
+    add_watchlist_entry,
     agent_output_outline,
+    build_screening_fallback_candidates,
     build_agent_user_prompt,
     build_buy_side_synthesis_prompt,
     build_company_analyst_prompt,
     build_market_analyst_prompt,
     build_red_team_fallback,
+    default_workspace_home,
+    load_watchlist,
+    normalize_screen_candidates,
+    parse_interval_hours,
     build_sentiment_simulator_prompt,
     build_comparison_fallback_from_evidence,
     build_sentiment_fallback_from_evidence,
@@ -35,11 +41,15 @@ from stock_research_desk.stock_cli import (
     resolve_think,
     sanitize_source_text,
     save_memory_context,
+    save_watchlist,
     source_quality_score,
     should_replace_comparison_summary,
     should_replace_sentiment_summary,
     slugify,
     summarize_memory_context,
+    remove_watchlist_entry,
+    resolve_workspace_paths,
+    run_due_watchlist,
 )
 
 
@@ -336,6 +346,21 @@ def test_load_config_rejects_localhost(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
 
+def test_default_workspace_home_prefers_desktop(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("STOCK_RESEARCH_DESK_HOME", raising=False)
+    monkeypatch.setattr("stock_research_desk.stock_cli.Path.home", classmethod(lambda cls: tmp_path))
+    assert default_workspace_home() == (tmp_path / "Desktop" / "Stock Research Desk").resolve()
+
+
+def test_resolve_workspace_paths_builds_desktop_tree(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("STOCK_RESEARCH_DESK_HOME", str(tmp_path / "desk-home"))
+    paths = resolve_workspace_paths("reports")
+    assert paths.reports_dir == (tmp_path / "desk-home" / "reports").resolve()
+    assert paths.memory_dir == (tmp_path / "desk-home" / "memory_palace").resolve()
+    assert paths.screens_dir == (tmp_path / "desk-home" / "screenings").resolve()
+    assert paths.watchlist_path == (tmp_path / "desk-home" / "watchlist.json").resolve()
+
+
 def test_resolve_think_disables_gemini_tool_phase() -> None:
     assert resolve_think("gemini-3-flash-preview", "medium") is None
 
@@ -484,6 +509,45 @@ def test_normalize_ticker_adds_china_suffix_from_exchange() -> None:
     assert normalize_ticker("603283", "SSE", "CN") == "603283.SH"
 
 
+def test_parse_interval_hours_supports_hours_days_and_weeks() -> None:
+    assert parse_interval_hours("24h") == 24
+    assert parse_interval_hours("3d") == 72
+    assert parse_interval_hours("1w") == 168
+
+
+def test_normalize_screen_candidates_dedupes_and_sorts() -> None:
+    payload = normalize_screen_candidates(
+        [
+            {"company_name": "赛腾股份", "ticker": "603283", "screen_score": 77, "confidence": "high", "source_count": 3},
+            {"company_name": "赛腾股份", "ticker": "603283.SH", "screen_score": 60, "confidence": "low", "source_count": 1},
+            {"company_name": "中科飞测", "ticker": "688361", "screen_score": 88, "confidence": "medium", "source_count": 2},
+        ],
+        theme="先进制造",
+        market="CN",
+    )
+    assert len(payload) == 2
+    assert payload[0]["ticker"] == "688361.SH"
+    assert payload[1]["ticker"] == "603283.SH"
+
+
+def test_build_screening_fallback_candidates_extracts_stock_names_from_evidence() -> None:
+    candidates = build_screening_fallback_candidates(
+        [
+            {
+                "title": "赛腾股份(603283)年报摘要",
+                "url": "https://www.cninfo.com.cn/test",
+                "claim": "赛腾股份在半导体设备与消费电子自动化方向具备继续研究价值。",
+                "quality": "96",
+                "stance": "neutral",
+            }
+        ],
+        theme="中国机器人",
+        market="CN",
+    )
+    assert candidates[0]["company_name"] == "赛腾股份"
+    assert candidates[0]["ticker"] == "603283.SH"
+
+
 def test_choose_section_text_prefers_distilled_summary_for_low_quality_text() -> None:
     raw = "赛腾股份(603283)_公司公告_新浪财经_新浪网\n同花顺F10"
     chosen = choose_section_text(raw, "真正的研究摘要", "默认值")
@@ -534,6 +598,66 @@ def test_save_and_load_memory_context_round_trip(tmp_path: Path) -> None:
     assert summary["last_verdict"] == "watchlist"
     assert loaded.payload["persona_pack"]["committee_red_team"][0] == "Michael Burry"
     assert summary["key_bull_points"] == ["国产替代"]
+
+
+def test_watchlist_add_and_remove_round_trip(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("STOCK_RESEARCH_DESK_HOME", str(tmp_path / "desk-home"))
+    paths = resolve_workspace_paths("reports")
+    entry = add_watchlist_entry(
+        paths=paths,
+        stock_name="赛腾股份",
+        ticker="603283.SH",
+        market="CN",
+        angle="中国故事",
+        interval_spec="7d",
+    )
+    loaded = load_watchlist(paths)
+    assert entry["identifier"] == "603283-sh"
+    assert loaded[0]["ticker"] == "603283.SH"
+    removed = remove_watchlist_entry(paths, "603283.SH")
+    assert removed == "603283.SH"
+    assert load_watchlist(paths) == []
+
+
+def test_run_due_watchlist_updates_next_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("STOCK_RESEARCH_DESK_HOME", str(tmp_path / "desk-home"))
+    paths = resolve_workspace_paths("reports")
+    save_watchlist(
+        paths,
+        [
+            {
+                "identifier": "603283-sh",
+                "stock_name": "赛腾股份",
+                "ticker": "603283.SH",
+                "market": "CN",
+                "angle": "中国故事",
+                "interval_spec": "1d",
+                "interval_hours": 24,
+                "next_run_at": "2026-04-01T00:00:00+00:00",
+                "last_run_at": None,
+                "last_report_path": "",
+            }
+        ],
+    )
+
+    def fake_run_stock_research(**_: object) -> dict[str, object]:
+        return {
+            "markdown_path": "/tmp/report.md",
+            "json_path": "/tmp/report.json",
+            "memory_path": "/tmp/memory.json",
+            "payload": {"verdict": "watchlist"},
+        }
+
+    monkeypatch.setattr("stock_research_desk.stock_cli.run_stock_research", fake_run_stock_research)
+
+    class FakeConfig:
+        pass
+
+    result = run_due_watchlist(paths=paths, config=FakeConfig(), limit=5, verbose=False)
+    updated = load_watchlist(paths)
+    assert result["processed"] == 1
+    assert updated[0]["last_report_path"] == "/tmp/report.md"
+    assert updated[0]["next_run_at"] != "2026-04-01T00:00:00+00:00"
 
 
 def test_extract_target_prices_from_text_reads_price_horizon_and_thesis() -> None:

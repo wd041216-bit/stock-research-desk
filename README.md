@@ -4,7 +4,13 @@
 
 Cloud-only multi-agent stock research for serious single-name work.
 
-`stock-research-desk` takes one stock, runs a layered research workflow through Ollama Cloud, ranks evidence quality, lets investor-style committees debate the thesis, simulates multiple futures, and writes a dense memo with short-, medium-, and long-term target prices.
+`stock-research-desk` can now do three kinds of work:
+
+- deep research for one stock
+- theme / sector screening with initial filter, second filter, and finalist deep dives
+- recurring watchlist analysis on a fixed cadence
+
+Everything still stays terminal-first and cloud-only through Ollama Cloud.
 
 ## What It Is
 
@@ -17,6 +23,7 @@ It is built for the moment after an idea becomes interesting but before you trus
 - red-team challenge and disagreement capture
 - MiroFish-style future branches
 - explicit short-, medium-, and long-term target prices
+- watchlist memory and recurring refresh cycles
 
 ![Memo preview](assets/memo-preview.svg)
 
@@ -34,6 +41,7 @@ This repo stacks them into one debate-oriented workflow:
 - multi-agent passes instead of one-shot summary
 - committee debate before conclusion
 - scenario projection before target prices
+- sector screening before expensive deep work
 - memory snapshots so repeat runs accumulate context instead of restarting cold
 
 If you want a quick feel for the output, open:
@@ -90,13 +98,33 @@ research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事
 
 The command writes:
 
-- `reports/<timestamp>-<ticker>.md`
-- `reports/<timestamp>-<ticker>.json`
-- `memory_palace/<ticker>.json`
+- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.md`
+- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.json`
+- `~/Desktop/Stock Research Desk/memory_palace/<ticker>.json`
+
+Run a theme screen:
+
+```bash
+research-stock screen "中国机器人" --market CN --count 3
+```
+
+That will:
+
+- do an initial web-based candidate scout
+- run a second-screen committee
+- run full deep research on the finalists
+- save a screening summary to `~/Desktop/Stock Research Desk/screenings/`
+
+Add a recurring watchlist entry:
+
+```bash
+research-stock watchlist add 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事" --interval 7d
+research-stock watchlist run-due
+```
 
 ## Full Workflow
 
-The CLI runs a multi-stage desk:
+The single-name CLI runs a multi-stage desk:
 
 1. `market_analyst`
    Reads the cycle, market structure, China narrative, and valuation frame.
@@ -116,6 +144,15 @@ The CLI runs a multi-stage desk:
    Produces short-, medium-, and long-term target prices with time horizons.
 
 Every run updates a local `memory_palace/` snapshot so the next pass can continue from prior bull / bear points, open questions, and recent evidence.
+
+For theme screening, the product now uses three layers:
+
+1. initial screen
+   Collects candidate names from public-web evidence.
+2. second screen
+   A stricter committee picks the few names worth expensive deep work.
+3. finalist deep research
+   The existing multi-agent memo process runs on each finalist.
 
 ## Example Output Shape
 
@@ -143,13 +180,14 @@ Key variables:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `OLLAMA_API_KEY` | required | Ollama Cloud API key |
+| `STOCK_RESEARCH_DESK_HOME` | `~/Desktop/Stock Research Desk` | default desktop workspace |
 | `STOCK_RESEARCH_DESK_MODEL` | `kimi-k2.5:cloud` | default research model |
 | `STOCK_RESEARCH_DESK_THINK` | `high` | reasoning depth |
 | `STOCK_RESEARCH_DESK_MAX_RESULTS` | `5` | max web search results per step |
 | `STOCK_RESEARCH_DESK_MAX_FETCHES` | `6` | max page fetches per step |
 | `STOCK_RESEARCH_DESK_TIMEOUT_SECONDS` | `45` | per-call timeout |
 | `STOCK_RESEARCH_DESK_OLLAMA_HOST` | `https://ollama.com` | cloud host |
-| `STOCK_RESEARCH_DESK_OUTPUT_DIR` | `reports` | report output directory |
+| `STOCK_RESEARCH_DESK_OUTPUT_DIR` | `reports` | report directory under the desktop workspace |
 
 ## Evidence Quality Rules
 

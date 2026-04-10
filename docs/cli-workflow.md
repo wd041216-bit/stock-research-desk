@@ -8,6 +8,40 @@
 research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事"
 ```
 
+## Theme Screening
+
+```bash
+research-stock screen "中国机器人" --market CN --count 3
+```
+
+This performs:
+
+1. initial screen from public-web evidence
+2. second-screen committee selection
+3. full deep-research memos for the finalists
+
+Artifacts:
+
+- `~/Desktop/Stock Research Desk/screenings/*.md`
+- `~/Desktop/Stock Research Desk/screenings/*.json`
+- finalist memos in `~/Desktop/Stock Research Desk/reports/`
+
+## Watchlist
+
+```bash
+research-stock watchlist add 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事" --interval 7d
+research-stock watchlist list
+research-stock watchlist run-due
+```
+
+Each watchlist item stores:
+
+- stock name / ticker / market
+- research angle
+- cadence
+- next run time
+- latest generated report path
+
 ## What Happens
 
 1. The CLI loads prior memory from `memory_palace/` if it exists.
@@ -23,9 +57,11 @@ research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事
 
 ## Artifacts
 
-- `reports/*.md`
-- `reports/*.json`
-- `memory_palace/*.json`
+- `~/Desktop/Stock Research Desk/reports/*.md`
+- `~/Desktop/Stock Research Desk/reports/*.json`
+- `~/Desktop/Stock Research Desk/memory_palace/*.json`
+- `~/Desktop/Stock Research Desk/screenings/*.md`
+- `~/Desktop/Stock Research Desk/screenings/*.json`
 
 ## Recommended Flags
 

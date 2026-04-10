@@ -36,6 +36,7 @@ from stock_research_desk.stock_cli import (
     load_config,
     load_memory_context,
     merge_evidence,
+    merge_screen_candidates,
     normalize_confidence,
     normalize_evidence,
     normalize_report_payload,
@@ -843,6 +844,9 @@ def test_render_screening_markdown_includes_summary_rank_and_rejects() -> None:
                 "screen_score": 82,
                 "stage_two_note": "why now 更明确。",
                 "markdown_path": "/tmp/report.md",
+                "why_not_now": "仍需验证客户结构改善。",
+                "vertical_summary": "业务与主题契合度更高。",
+                "horizontal_summary": "相对同类更适合优先深研。",
                 "payload": {
                     "verdict": "watchlist",
                     "confidence": "medium",
@@ -857,6 +861,8 @@ def test_render_screening_markdown_includes_summary_rank_and_rejects() -> None:
     assert "## 推荐摘要" in markdown
     assert "Recommendation rank" in markdown
     assert "## 本轮未晋级名单" in markdown
+    assert "Vertical summary" in markdown
+    assert "Why not now" in markdown
 
 
 def test_extract_target_prices_from_text_reads_price_horizon_and_thesis() -> None:
@@ -870,6 +876,53 @@ def test_extract_target_prices_from_text_reads_price_horizon_and_thesis() -> Non
     assert payload["short_term"]["price"] == "42"
     assert "3个月" in payload["short_term"]["horizon"]
     assert "订单验证" in payload["short_term"]["thesis"]
+
+
+def test_normalize_screen_candidates_keeps_diligence_fields() -> None:
+    candidates = normalize_screen_candidates(
+        [
+            {
+                "company_name": "赛腾股份",
+                "ticker": "603283.SH",
+                "screen_score": 80,
+                "why_now": "订单和主题共振更明确。",
+                "why_not_now": "客户集中度仍高。",
+                "vertical_summary": "业务与主题契合度更高。",
+                "horizontal_summary": "横向更值得继续优先研究。",
+            }
+        ],
+        theme="中国机器人",
+        market="CN",
+    )
+    assert candidates[0]["why_now"] == "订单和主题共振更明确。"
+    assert candidates[0]["why_not_now"] == "客户集中度仍高。"
+    assert candidates[0]["vertical_summary"] == "业务与主题契合度更高。"
+
+
+def test_merge_screen_candidates_restores_stage_one_dossier_fields() -> None:
+    merged = merge_screen_candidates(
+        [
+            {
+                "company_name": "赛腾股份",
+                "ticker": "603283.SH",
+                "screen_score": 88,
+                "rationale": "why now 更明确。",
+            }
+        ],
+        references=[
+            {
+                "company_name": "赛腾股份",
+                "ticker": "603283.SH",
+                "screen_score": 81,
+                "vertical_summary": "业务与主题契合。",
+                "horizontal_summary": "横向更值得继续研究。",
+                "why_not_now": "客户集中度仍高。",
+            }
+        ],
+    )
+    assert merged[0]["vertical_summary"] == "业务与主题契合。"
+    assert merged[0]["horizontal_summary"] == "横向更值得继续研究。"
+    assert merged[0]["why_not_now"] == "客户集中度仍高。"
 
 
 def test_source_quality_score_prefers_official_domains() -> None:

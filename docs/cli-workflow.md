@@ -17,8 +17,9 @@ research-stock screen "中国机器人" --market CN --count 3
 This performs:
 
 1. initial screen from public-web evidence
-2. second-screen committee selection
-3. full deep-research memos for the finalists
+2. candidate-level mini-dossiers with vertical and horizontal web diligence
+3. second-screen committee selection
+4. full deep-research memos for the finalists
 
 Artifacts:
 

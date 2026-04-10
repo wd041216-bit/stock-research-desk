@@ -120,7 +120,8 @@ research-stock screen "中国机器人" --market CN --count 3
 That will:
 
 - do an initial web-based candidate scout
-- run a second-screen committee
+- turn the shortlisted names into mini-dossiers with vertical + horizontal web diligence
+- run a second-screen committee on those dossiers
 - run full deep research on the finalists
 - save a screening summary to `~/Desktop/Stock Research Desk/screenings/`
 
@@ -182,7 +183,7 @@ For theme screening, the product now uses three layers:
 1. initial screen
    Collects candidate names from public-web evidence.
 2. second screen
-   A stricter committee picks the few names worth expensive deep work.
+   A stricter committee reviews mini-dossiers, not just a flat candidate list.
 3. finalist deep research
    The existing multi-agent memo process runs on each finalist.
 

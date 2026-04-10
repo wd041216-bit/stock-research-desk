@@ -750,8 +750,25 @@ def run_screening_pipeline(
             theme=theme,
             market=market,
         )
-    stage_one_count = min(max(desired_count * 3, desired_count + 2), len(initial_candidates))
-    stage_one = initial_candidates[:stage_one_count]
+    stage_one_count = min(max(desired_count * 4, desired_count + 4), len(initial_candidates))
+    stage_one_seed = initial_candidates[:stage_one_count]
+    stage_one: list[dict[str, Any]] = []
+    for index, candidate in enumerate(stage_one_seed, start=1):
+        if verbose:
+            print(f"[screen] diligence {index}/{len(stage_one_seed)}: {candidate['company_name']} {candidate.get('ticker', '')}".strip())
+        stage_one.append(
+            run_screening_diligence(
+                client=client,
+                model=config.model,
+                think=config.think,
+                theme=theme,
+                market=market,
+                candidate=candidate,
+                max_results=max(config.max_results + 2, 6),
+                max_fetches=max(config.max_fetches + 3, 8),
+                verbose=verbose,
+            )
+        )
 
     shortlist = run_second_screen_committee(
         client=client,
@@ -762,7 +779,10 @@ def run_screening_pipeline(
         desired_count=desired_count,
         candidates=stage_one,
     )
-    finalists = normalize_screen_candidates(shortlist.get("recommended"), theme=theme, market=market)[:desired_count]
+    finalists = merge_screen_candidates(
+        normalize_screen_candidates(shortlist.get("recommended"), theme=theme, market=market),
+        references=stage_one,
+    )[:desired_count]
     if not finalists:
         finalists = stage_one[:desired_count]
 
@@ -927,6 +947,104 @@ def run_second_screen_committee(
     except Exception:
         pass
     return fallback
+
+
+def run_screening_diligence(
+    *,
+    client: Client,
+    model: str,
+    think: str,
+    theme: str,
+    market: str,
+    candidate: dict[str, Any],
+    max_results: int,
+    max_fetches: int,
+    verbose: bool = False,
+) -> dict[str, Any]:
+    note = safe_run_agent_with_tools(
+        client=client,
+        name="screening_diligence",
+        model=model,
+        think=think,
+        system_prompt=build_screening_diligence_prompt(max_results=max_results, max_fetches=max_fetches),
+        user_prompt=build_screening_diligence_user_prompt(theme=theme, market=market, candidate=candidate),
+        max_results=max_results,
+        max_fetches=max_fetches,
+        verbose=verbose,
+    )
+    evidence = extract_evidence_from_traces([note.tool_traces])[:6]
+    return enrich_screen_candidate(candidate=candidate, note=note.content, evidence=evidence, theme=theme, market=market)
+
+
+def enrich_screen_candidate(
+    *,
+    candidate: dict[str, Any],
+    note: str,
+    evidence: list[dict[str, str]],
+    theme: str,
+    market: str,
+) -> dict[str, Any]:
+    vertical_summary = preferred_section_text(
+        extract_markdown_sections(note, "业务与主题契合度", "纵向调查", "公司质量", "经营与客户"),
+        "\n".join(evidence_signal_lines([{"tool_name": "digest", "arguments": {}, "result": {"results": evidence}}])[:3]),
+    ) or clean_research_summary(candidate.get("rationale", ""))
+    horizontal_summary = preferred_section_text(
+        extract_markdown_sections(note, "横向对比", "可比公司", "估值锚", "为什么值得继续研究"),
+        clean_research_summary(candidate.get("rationale", "")),
+    ) or clean_research_summary(candidate.get("rationale", ""))
+    why_now = preferred_section_text(
+        extract_markdown_sections(note, "为什么现在值得看", "Why now"),
+        clean_research_summary(candidate.get("rationale", "")),
+    ) or clean_research_summary(candidate.get("rationale", ""))
+    why_not_now = preferred_section_text(
+        extract_markdown_sections(note, "为什么现在还不能下重注", "Why not now", "主要断点"),
+        "仍需继续核实关键经营与估值假设。",
+    )
+    avg_quality = 0
+    if evidence:
+        avg_quality = round(sum(int(item.get("quality") or 0) for item in evidence) / len(evidence))
+    upgraded_score = min(
+        98,
+        max(
+            int(candidate.get("screen_score") or 50),
+            int(candidate.get("screen_score") or 50) + min(8, len(evidence)) + max(0, (avg_quality - 60) // 8),
+        ),
+    )
+    enriched = normalize_screen_candidates([candidate], theme=theme, market=market)[0]
+    enriched.update(
+        {
+            "screen_score": upgraded_score,
+            "source_count": max(int(candidate.get("source_count") or 1), len(evidence)),
+            "vertical_summary": clip_text(vertical_summary, 600),
+            "horizontal_summary": clip_text(horizontal_summary, 600),
+            "why_now": clip_text(why_now, 280),
+            "why_not_now": clip_text(why_not_now, 280),
+            "evidence_snapshot": evidence,
+            "diligence_note": clip_text(clean_research_summary(note), 1200),
+            "rationale": clip_text(why_now or clean_research_summary(candidate.get("rationale", "")), 320),
+        }
+    )
+    return enriched
+
+
+def merge_screen_candidates(candidates: list[dict[str, Any]], *, references: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    reference_map = {
+        slugify(item.get("ticker") or item.get("company_name") or ""): item
+        for item in references
+    }
+    merged: list[dict[str, Any]] = []
+    for item in candidates:
+        identifier = slugify(item.get("ticker") or item.get("company_name") or "")
+        reference = reference_map.get(identifier) or {}
+        combined = {**reference, **item}
+        for key in ("vertical_summary", "horizontal_summary", "why_now", "why_not_now", "evidence_snapshot", "diligence_note"):
+            if key not in combined and key in reference:
+                combined[key] = reference[key]
+        if not combined.get("rationale"):
+            combined["rationale"] = reference.get("rationale", "")
+        merged.append(combined)
+    merged.sort(key=screen_sort_key, reverse=True)
+    return merged
 
 
 def add_watchlist_entry(
@@ -1556,11 +1674,40 @@ def build_second_screen_prompt(*, theme: str, market: str, desired_count: int, c
     }
     return (
         "Return JSON only with a top-level `recommended` array. "
-        "Select the few names most worth full deep-research work. "
-        "Each recommended item must contain: company_name, ticker, market, rationale, screen_score, confidence, angle. "
-        "Favor names with cleaner business linkage, better research upside, and clearer why-now framing. "
+        "Select the few names most worth full deep-research work after both vertical and horizontal investigation. "
+        "Each recommended item must contain: company_name, ticker, market, rationale, screen_score, confidence, angle, why_now, why_not_now. "
+        "Favor names with cleaner business linkage, stronger evidence quality, better peer-relative upside, and clearer why-now framing. "
+        "Penalize vague theme adjacency, poor source quality, and unresolved core contradictions. "
         f"Input: {json.dumps(payload, ensure_ascii=False)}"
     )
+
+
+def build_screening_diligence_prompt(*, max_results: int, max_fetches: int) -> str:
+    return (
+        "你是 buy-side screening desk 的尽调分析师。"
+        "初筛不是简单搜名字，而是要对每个候选做一轮联网 mini-dossier。"
+        f"Use no more than {max_results} search results per search and no more than {max_fetches} page fetches total. "
+        "必须同时完成横向和纵向调查。纵向包括业务与主题契合度、客户/订单/经营信号、关键风险。"
+        "横向包括可比公司、估值锚、为什么它比别的候选更值得继续研究。"
+        "优先搜索公司官网、交易所、公告、年报、投资者关系页、权威财经媒体。"
+        "输出中文 Markdown，包含：业务与主题契合度、纵向调查、横向对比、为什么现在值得看、为什么现在还不能下重注、继续研究建议。"
+    )
+
+
+def build_screening_diligence_user_prompt(*, theme: str, market: str, candidate: dict[str, Any]) -> str:
+    payload = {
+        "theme": theme,
+        "market": market,
+        "candidate": {
+            "company_name": candidate.get("company_name"),
+            "ticker": candidate.get("ticker"),
+            "market": candidate.get("market") or market,
+            "seed_rationale": candidate.get("rationale"),
+            "seed_score": candidate.get("screen_score"),
+        },
+        "goal": "做一轮严格的联网初筛尽调，判断这只股票是不是应该进入昂贵的完整深研流程。",
+    }
+    return f"请围绕这个候选标的做 mini-dossier：{json.dumps(payload, ensure_ascii=False)}"
 
 
 def render_screening_markdown(
@@ -1575,7 +1722,8 @@ def render_screening_markdown(
         verdict = str(payload.get("verdict") or "watchlist")
         confidence = str(payload.get("confidence") or "medium")
         quick_take = str(payload.get("quick_take") or "").strip()
-        why_now = str(item.get("stage_two_note") or item.get("rationale") or "").strip()
+        why_now = str(item.get("why_now") or item.get("stage_two_note") or item.get("rationale") or "").strip()
+        why_not_now = str(item.get("why_not_now") or "").strip()
         targets = payload.get("target_prices") or {}
         short_term = targets.get("short_term") or {}
         return "\n".join(
@@ -1586,7 +1734,10 @@ def render_screening_markdown(
                 f"- Research verdict: `{verdict}`",
                 f"- Confidence: `{confidence}`",
                 f"- Why now: {why_now or '待补充'}",
+                f"- Why not now: {why_not_now or '主要断点仍需继续通过完整深研验证。'}",
                 f"- Quick take: {quick_take or '待补充'}",
+                f"- Vertical summary: {item.get('vertical_summary', '') or '待补充'}",
+                f"- Horizontal summary: {item.get('horizontal_summary', '') or '待补充'}",
                 f"- Short-term target: {short_term.get('price', 'n/a')} | {short_term.get('horizon', 'n/a')}",
                 f"- Bull/Bear focus: {summarize_bull_bear(payload)}",
                 f"- Report path: `{item.get('markdown_path', '')}`",
@@ -1605,7 +1756,14 @@ def render_screening_markdown(
         )
 
     stage_one_block = "\n".join(
-        f"- `{item.get('ticker') or item.get('company_name')}` | score={item.get('screen_score')} | {item.get('rationale', '')}"
+        "\n".join(
+            [
+                f"- `{item.get('ticker') or item.get('company_name')}` | score={item.get('screen_score')} | why_now={item.get('why_now') or item.get('rationale', '')}",
+                f"  vertical={item.get('vertical_summary', '') or 'n/a'}",
+                f"  horizontal={item.get('horizontal_summary', '') or 'n/a'}",
+                f"  why_not_now={item.get('why_not_now', '') or 'n/a'}",
+            ]
+        )
         for item in stage_one_candidates
     ) or "- 初筛没有稳定返回候选。"
     finalist_block = "\n".join(
@@ -1640,8 +1798,8 @@ def screening_summary(*, theme: str, finalists: list[dict[str, Any]]) -> str:
     top = finalists[0]
     payload = top.get("payload") or {}
     return (
-        f"本轮围绕 `{theme}` 先做公开网页初筛，再做二筛委员会压缩，最后对最值得投入时间的标的做完整多 agent 深研。"
-        f" 当前最优先继续跟的名字是 `{top.get('company_name')}`，因为它在 why-now、screen score 和最终 memo 一致性上最稳。"
+        f"本轮围绕 `{theme}` 先做公开网页 scout，然后对入池候选逐个做联网 mini-dossier，再做二筛委员会压缩，最后对最值得投入时间的标的做完整多 agent 深研。"
+        f" 当前最优先继续跟的名字是 `{top.get('company_name')}`，因为它在 why-now、横向对比、纵向尽调和最终 memo 一致性上最稳。"
         f" 最终 verdict 为 `{payload.get('verdict', 'watchlist')}`，说明这套流程更偏严谨研究，而不是无脑抬高结论。"
     )
 
@@ -3575,6 +3733,12 @@ def normalize_screen_candidates(value: Any, *, theme: str, market: str) -> list[
                 "confidence": normalize_confidence(str(item.get("confidence") or "medium")),
                 "source_count": max(1, int(item.get("source_count") or 1)),
                 "angle": str(item.get("angle") or theme).strip() or theme,
+                "why_now": clean_research_summary(str(item.get("why_now") or item.get("rationale") or "")),
+                "why_not_now": clean_research_summary(str(item.get("why_not_now") or "")),
+                "vertical_summary": clean_research_summary(str(item.get("vertical_summary") or "")),
+                "horizontal_summary": clean_research_summary(str(item.get("horizontal_summary") or "")),
+                "diligence_note": clean_research_summary(str(item.get("diligence_note") or "")),
+                "evidence_snapshot": item.get("evidence_snapshot") if isinstance(item.get("evidence_snapshot"), list) else [],
             }
         )
     normalized.sort(key=screen_sort_key, reverse=True)

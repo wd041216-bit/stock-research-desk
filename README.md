@@ -136,8 +136,11 @@ cp .env.example .env
 Set your cloud key:
 
 ```bash
-export OLLAMA_API_KEY="your_ollama_cloud_api_key"
+cp .env.example .env
+# then put your real Ollama Cloud key into .env once
 ```
+
+The CLI auto-loads the local `.env` file from the repo root, so you do not need to re-export `OLLAMA_API_KEY` every time.
 
 Run a first memo:
 

@@ -39,6 +39,7 @@ from .runtime import parse_structured_response
 DEFAULT_HOST = "https://ollama.com"
 DEFAULT_MODEL = "kimi-k2.5:cloud"
 CROSS_VALIDATED_SEARCH_ROOT = Path(__file__).resolve().parents[3] / "tmp" / "cross-validated-search"
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 DOMAIN_QUALITY_OVERRIDES: dict[str, int] = {
     "cninfo.com.cn": 96,
@@ -248,7 +249,26 @@ class MemoryContext:
     payload: dict[str, Any]
 
 
+def load_local_env_file(path: Path | None = None) -> None:
+    env_path = path or (REPO_ROOT / ".env")
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key or key in os.environ:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        os.environ[key] = os.path.expanduser(value)
+
+
 def main(argv: list[str] | None = None) -> None:
+    load_local_env_file()
     raw_args = list(argv if argv is not None else sys.argv[1:])
     if not raw_args or raw_args[0] in {"-h", "--help"}:
         parser = build_command_parser()

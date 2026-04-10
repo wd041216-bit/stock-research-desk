@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 from pathlib import Path
 
 import pytest
@@ -50,6 +51,7 @@ from stock_research_desk.stock_cli import (
     extract_evidence_from_traces,
     extract_target_prices_from_text,
     load_config,
+    load_local_env_file,
     load_memory_context,
     merge_evidence,
     merge_screen_candidates,
@@ -958,6 +960,24 @@ def test_resolve_workspace_paths_enables_single_document_delivery_on_desktop(mon
     digest_paths = build_watchlist_digest_document_paths(digests_dir=paths.digests_dir, timestamp="20260410-000000", single_document=paths.single_document_delivery)
     assert report_paths["primary"] == report_paths["zh"] == report_paths["en"]
     assert digest_paths["primary"] == digest_paths["zh"] == digest_paths["en"]
+
+
+def test_load_local_env_file_populates_missing_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
+    monkeypatch.delenv("STOCK_RESEARCH_DESK_HOME", raising=False)
+    env_path = tmp_path / ".env"
+    env_path.write_text("OLLAMA_API_KEY=test-key\nSTOCK_RESEARCH_DESK_HOME=~/Desktop/Stock Research Desk\n")
+    load_local_env_file(env_path)
+    assert os.environ["OLLAMA_API_KEY"] == "test-key"
+    assert os.environ["STOCK_RESEARCH_DESK_HOME"].endswith("Desktop/Stock Research Desk")
+
+
+def test_load_local_env_file_does_not_override_existing_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("OLLAMA_API_KEY", "already-set")
+    env_path = tmp_path / ".env"
+    env_path.write_text("OLLAMA_API_KEY=test-key\n")
+    load_local_env_file(env_path)
+    assert os.environ["OLLAMA_API_KEY"] == "already-set"
 
 
 def test_run_due_watchlist_updates_next_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

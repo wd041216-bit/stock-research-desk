@@ -2,7 +2,7 @@
 
 ![Stock Research Desk banner](assets/banner.svg)
 
-Cloud-only multi-agent stock research for serious single-name work.
+Cloud-only multi-agent stock research for serious single-name work, now with Codex-native operation and bilingual DOCX delivery.
 
 `stock-research-desk` can now do three kinds of work:
 
@@ -10,8 +10,12 @@ Cloud-only multi-agent stock research for serious single-name work.
 - theme / sector screening with initial filter, second filter, and finalist deep dives
 - recurring watchlist analysis on a fixed cadence
 - email-driven interaction through a mailbox like QQ Mail
+- Codex-native operation through a local skill, Codex web research, and automation-ready watchlists
 
-Everything still stays terminal-first and cloud-only through Ollama Cloud.
+The repo now supports two host modes:
+
+- terminal-first cloud execution through Ollama Cloud
+- Codex-native execution where Codex becomes the main brain, uses its own web research first, and writes final DOCX outputs to the desktop workspace
 
 In practice, that means you can use it in three modes:
 
@@ -57,6 +61,7 @@ If you want a quick feel for the output, open:
 - [Sample Screening Summary](docs/sample-screening.md)
 - [Email Briefing Modes](docs/email-briefings.md)
 - [CLI Workflow](docs/cli-workflow.md)
+- [Codex Skill Mode](docs/codex-skill.md)
 - [Source Quality Model](docs/source-quality.md)
 
 ## Why This Exists
@@ -103,19 +108,20 @@ export OLLAMA_API_KEY="your_ollama_cloud_api_key"
 Run a first memo:
 
 ```bash
-research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事"
+./bin/research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事"
 ```
 
 The command writes:
 
-- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.md`
+- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-zh.docx`
+- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-en.docx`
 - `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.json`
 - `~/Desktop/Stock Research Desk/memory_palace/<ticker>.json`
 
 Run a theme screen:
 
 ```bash
-research-stock screen "中国机器人" --market CN --count 3
+./bin/research-stock screen "中国机器人" --market CN --count 3
 ```
 
 That will:
@@ -129,8 +135,8 @@ That will:
 Add a recurring watchlist entry:
 
 ```bash
-research-stock watchlist add 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事" --interval 7d
-research-stock watchlist run-due
+./bin/research-stock watchlist add 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事" --interval 7d
+./bin/research-stock watchlist run-due
 ```
 
 Enable mailbox interaction:
@@ -138,7 +144,7 @@ Enable mailbox interaction:
 ```bash
 export STOCK_RESEARCH_DESK_EMAIL_ADDRESS="your_qq_mail@qq.com"
 export STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD="your_qq_authorization_code"
-research-stock email run-once
+./bin/research-stock email run-once
 ```
 
 Supported email subjects:
@@ -149,7 +155,7 @@ Supported email subjects:
 - `watchlist list`
 - `watchlist run-due`
 
-Email replies now come back in desk-style formats:
+Email replies now come back in desk-style formats and attach the document bundle:
 
 - `Single-Name Desk Note`
 - `Screening Brief`
@@ -203,6 +209,20 @@ For recurring tracking, the product now also maintains:
    Each due run can emit a watchlist digest into the desktop workspace.
 3. mailbox control
    You can trigger research, screening, and watchlist workflows by email.
+
+## Codex Skill Mode
+
+The repo now ships a Codex skill at:
+
+- [`codex-skill/stock-research-desk/SKILL.md`](codex-skill/stock-research-desk/SKILL.md)
+
+In Codex-native mode:
+
+- Codex is the main brain
+- Codex web research is tried first
+- `cross-validated-search` is only a fallback when a search/fetch step explicitly errors
+- recurring watchlists should be scheduled through Codex automations, not the repo's older internal scheduler
+- final deliverables should be kept as separate Chinese and English DOCX reports
 
 ## Example Output Shape
 

@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Stock Research Desk
+  short_description: Codex-native stock research, screening, and watchlist workflow
+  default_prompt: Research stocks and sectors with Codex web search, investor councils, bilingual DOCX delivery, and automation-ready watchlists.

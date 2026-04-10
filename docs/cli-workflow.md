@@ -5,13 +5,13 @@
 ## One Run
 
 ```bash
-research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事"
+./bin/research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事"
 ```
 
 ## Theme Screening
 
 ```bash
-research-stock screen "中国机器人" --market CN --count 3
+./bin/research-stock screen "中国机器人" --market CN --count 3
 ```
 
 This performs:
@@ -36,16 +36,17 @@ The second-screen council is no longer a single pass. It now includes:
 
 Artifacts:
 
-- `~/Desktop/Stock Research Desk/screenings/*.md`
+- `~/Desktop/Stock Research Desk/screenings/*-zh.docx`
+- `~/Desktop/Stock Research Desk/screenings/*-en.docx`
 - `~/Desktop/Stock Research Desk/screenings/*.json`
-- finalist memos in `~/Desktop/Stock Research Desk/reports/`
+- finalist DOCX memos in `~/Desktop/Stock Research Desk/reports/`
 
 ## Watchlist
 
 ```bash
-research-stock watchlist add 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事" --interval 7d
-research-stock watchlist list
-research-stock watchlist run-due
+./bin/research-stock watchlist add 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事" --interval 7d
+./bin/research-stock watchlist list
+./bin/research-stock watchlist run-due
 ```
 
 Each watchlist item stores:
@@ -58,7 +59,8 @@ Each watchlist item stores:
 
 When due entries are processed, the desk also writes:
 
-- `~/Desktop/Stock Research Desk/digests/*-watchlist-digest.md`
+- `~/Desktop/Stock Research Desk/digests/*-watchlist-digest-zh.docx`
+- `~/Desktop/Stock Research Desk/digests/*-watchlist-digest-en.docx`
 
 ## Email Control
 
@@ -67,7 +69,7 @@ QQ Mail works with standard IMAP + SMTP authorization codes.
 Example:
 
 ```bash
-research-stock email run-once
+./bin/research-stock email run-once
 ```
 
 Supported subject formats:

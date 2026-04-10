@@ -2,6 +2,7 @@ import pytest
 from datetime import datetime
 from pathlib import Path
 
+from stock_research_desk.documents import build_english_report_fallback, write_report_docx
 from stock_research_desk.stock_cli import (
     add_watchlist_entry,
     agent_output_outline,
@@ -80,6 +81,58 @@ from stock_research_desk.stock_cli import (
 
 def test_slugify_keeps_chinese_and_strips_noise() -> None:
     assert slugify("赛腾股份 / 603283.SH") == "赛腾股份-603283-sh"
+
+
+def test_write_report_docx_creates_a_docx_file(tmp_path: Path) -> None:
+    output = tmp_path / "report.docx"
+    payload = {
+        "company_name": "SaiTeng",
+        "ticker": "603283.SH",
+        "exchange": "SSE",
+        "market": "CN",
+        "model": "kimi-k2.5:cloud",
+        "quick_take": "Watchlist until order quality improves.",
+        "verdict": "watchlist",
+        "confidence": "high",
+        "market_map": "Automation demand is stabilizing.",
+        "business_summary": "The company sells automation equipment.",
+        "china_story": "Industrial upgrade remains relevant.",
+        "sentiment_simulation": "Narratives are improving but still mixed.",
+        "peer_comparison": "Peers do not yet provide a clean valuation anchor.",
+        "committee_takeaways": "Council wants better proof on customer quality.",
+        "scenario_outlook": "Base case remains watchlist.",
+        "debate_notes": "Red team is focused on customer concentration.",
+        "valuation_view": "Valuation still needs cleaner anchors.",
+        "bull_case": ["Operating leverage if semicap mix improves."],
+        "bear_case": ["Customer concentration remains elevated."],
+        "catalysts": ["New customer wins."],
+        "risks": ["Narrative outruns fundamentals."],
+        "next_questions": ["How durable is the order mix?"],
+        "evidence": [{"title": "Example", "url": "https://example.com", "claim": "Example claim", "stance": "support"}],
+        "target_prices": {
+            "short_term": {"price": "45.00", "horizon": "1-3 months", "thesis": "Near-term validation."},
+            "medium_term": {"price": "52.00", "horizon": "3-12 months", "thesis": "Mix shift continues."},
+            "long_term": {"price": "60.00", "horizon": "12-36 months", "thesis": "Structural demand improves."},
+        },
+    }
+    write_report_docx(output, payload=payload, language="zh")
+    assert output.exists()
+    assert output.stat().st_size > 0
+
+
+def test_build_english_report_fallback_keeps_english_output_clean() -> None:
+    payload = build_english_report_fallback(
+        {
+            "company_name": "赛腾股份",
+            "ticker": "603283.SH",
+            "quick_take": "需要继续验证客户结构。",
+            "bull_case": ["订单质量仍待验证。"],
+            "evidence": [{"title": "示例", "url": "https://example.com", "claim": "示例结论", "stance": "support"}],
+        }
+    )
+    assert payload["company_name"] == "603283.SH"
+    assert "Chinese report" in payload["quick_take"]
+    assert payload["bull_case"]
 
 
 def test_looks_like_us_ticker_accepts_plain_us_symbols() -> None:
@@ -893,7 +946,7 @@ def test_run_due_watchlist_updates_next_run(monkeypatch: pytest.MonkeyPatch, tmp
     assert result["processed"] == 1
     assert updated[0]["last_report_path"] == "/tmp/report.md"
     assert updated[0]["next_run_at"] != "2026-04-01T00:00:00+00:00"
-    assert result["digest_path"].endswith(".md")
+    assert result["digest_path"].endswith(".docx")
 
 
 def test_render_watchlist_digest_markdown_includes_verdict_and_path() -> None:

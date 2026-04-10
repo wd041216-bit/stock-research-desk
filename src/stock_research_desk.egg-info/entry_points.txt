@@ -1,0 +1,3 @@
+[console_scripts]
+research-stock = stock_research_desk.stock_cli:main
+stock-research-desk = stock_research_desk.stock_cli:main

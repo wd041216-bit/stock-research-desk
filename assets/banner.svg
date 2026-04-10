@@ -1,0 +1,43 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="640" fill="#0B1020"/>
+  <rect x="32" y="32" width="1216" height="576" rx="28" fill="url(#bg)"/>
+  <rect x="76" y="88" width="396" height="464" rx="24" fill="#111A34" stroke="#2D3A63"/>
+  <rect x="508" y="88" width="696" height="214" rx="24" fill="#111A34" stroke="#2D3A63"/>
+  <rect x="508" y="326" width="336" height="226" rx="24" fill="#111A34" stroke="#2D3A63"/>
+  <rect x="868" y="326" width="336" height="226" rx="24" fill="#111A34" stroke="#2D3A63"/>
+
+  <text x="104" y="144" fill="#9FB3FF" font-family="SFMono-Regular, Menlo, monospace" font-size="18">stock-research-desk</text>
+  <text x="104" y="206" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="46" font-weight="700">Cloud-only multi-agent</text>
+  <text x="104" y="258" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="46" font-weight="700">equity research for</text>
+  <text x="104" y="310" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="46" font-weight="700">serious single-name work.</text>
+  <text x="104" y="378" fill="#C7D2FE" font-family="Arial, Helvetica, sans-serif" font-size="24">Evidence ranking. Investor councils. Scenario branches.</text>
+  <text x="104" y="414" fill="#C7D2FE" font-family="Arial, Helvetica, sans-serif" font-size="24">Short / medium / long target prices with time horizons.</text>
+
+  <text x="540" y="138" fill="#8CA0D7" font-family="SFMono-Regular, Menlo, monospace" font-size="16">multi-agent desk</text>
+  <text x="540" y="184" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Market analyst</text>
+  <text x="540" y="218" fill="#D6DDF7" font-family="Arial, Helvetica, sans-serif" font-size="18">Cycle map, market structure, China narrative</text>
+  <text x="540" y="256" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Company analyst</text>
+  <text x="540" y="290" fill="#D6DDF7" font-family="Arial, Helvetica, sans-serif" font-size="18">Business quality, customers, financial signals</text>
+
+  <text x="540" y="372" fill="#8CA0D7" font-family="SFMono-Regular, Menlo, monospace" font-size="16">committee layer</text>
+  <text x="540" y="416" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Guru council</text>
+  <text x="540" y="450" fill="#D6DDF7" font-family="Arial, Helvetica, sans-serif" font-size="18">Consensus, disagreement, key verification breaks</text>
+  <text x="540" y="502" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">MiroFish scenarios</text>
+  <text x="540" y="536" fill="#D6DDF7" font-family="Arial, Helvetica, sans-serif" font-size="18">Bull / base / bear future paths with triggers</text>
+
+  <text x="900" y="372" fill="#8CA0D7" font-family="SFMono-Regular, Menlo, monospace" font-size="16">final memo</text>
+  <text x="900" y="418" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Target price ladder</text>
+  <text x="900" y="456" fill="#D6DDF7" font-family="Arial, Helvetica, sans-serif" font-size="18">Short term</text>
+  <text x="1090" y="456" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">45.55</text>
+  <text x="900" y="490" fill="#D6DDF7" font-family="Arial, Helvetica, sans-serif" font-size="18">Medium term</text>
+  <text x="1090" y="490" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">52.06</text>
+  <text x="900" y="524" fill="#D6DDF7" font-family="Arial, Helvetica, sans-serif" font-size="18">Long term</text>
+  <text x="1090" y="524" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">59.49</text>
+
+  <defs>
+    <linearGradient id="bg" x1="32" y1="32" x2="1248" y2="608" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#11172B"/>
+      <stop offset="1" stop-color="#141E3F"/>
+    </linearGradient>
+  </defs>
+</svg>

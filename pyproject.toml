@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stock-research-desk"
+version = "0.1.0"
+description = "Cloud-only multi-agent stock research CLI with evidence ranking, investor councils, and scenario analysis."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+  { name = "Da Wei" }
+]
+dependencies = [
+  "ollama>=0.6.1"
+]
+
+[project.scripts]
+stock-research-desk = "stock_research_desk.stock_cli:main"
+research-stock = "stock_research_desk.stock_cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4,<9.0"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["stock_research_desk*"]

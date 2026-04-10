@@ -2,22 +2,22 @@
 
 ![Stock Research Desk banner](assets/banner.svg)
 
-Cloud-only multi-agent stock research for serious single-name work, with an additive Codex-native skill mode and document-first delivery.
+A cloud-only multi-agent equity research desk for single-name deep dives, theme screening, recurring watchlists, and bilingual document delivery.
 
-`stock-research-desk` can now do three kinds of work:
+`stock-research-desk` is built around four operator workflows:
 
 - deep research for one stock
 - theme / sector screening with initial filter, second filter, and finalist deep dives
 - recurring watchlist analysis on a fixed cadence
 - email-driven interaction through a mailbox like QQ Mail
-- Codex-native operation through a local skill, Codex web research, and automation-ready watchlists
+- an additive Codex-native operating mode with Codex web research and automation-ready watchlists
 
 The repo now supports two host modes:
 
 - terminal-first cloud execution through Ollama Cloud
 - Codex-native execution where Codex becomes the main brain, uses its own web research first, and can write separate Chinese and English DOCX outputs to the desktop workspace
 
-In practice, that means you can use it in three modes:
+In practice, that means you can use it in four ways:
 
 - type one stock into the terminal and get a buy-side-style memo
 - give it a sector direction and let it narrow candidates before expensive deep work
@@ -89,6 +89,14 @@ It is intentionally narrow:
 - no OpenClaw dependency
 - no local-model fallback
 
+## What You Get
+
+- a staged single-name memo instead of a one-shot summary
+- sector screening with initial scout, second-screen council, and finalist deep dives
+- recurring watchlist refreshes with digest generation
+- separate Chinese and English DOCX deliverables for humans
+- JSON artifacts for follow-up automation
+
 ## 60-Second Start
 
 ```bash
@@ -148,8 +156,8 @@ Add a recurring watchlist entry:
 Enable mailbox interaction:
 
 ```bash
-export STOCK_RESEARCH_DESK_EMAIL_ADDRESS="your_qq_mail@qq.com"
-export STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD="your_qq_authorization_code"
+export STOCK_RESEARCH_DESK_EMAIL_ADDRESS="your_mailbox@example.com"
+export STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD="your_mailbox_app_password"
 ./bin/research-stock email run-once
 ```
 
@@ -167,6 +175,14 @@ Email replies now come back in desk-style formats and attach the document bundle
 - `Screening Brief`
 - `Morning Watchlist Brief`
 - `Weekly Watchlist Wrap`
+
+## Why It Can Be Trusted More Than A Thin Wrapper
+
+- it ranks sources before synthesis instead of trusting every page equally
+- it preserves disagreement through red-team and council stages
+- it treats target prices as committee outputs tied to time horizons
+- it keeps recurring context in a local memory snapshot instead of restarting cold
+- it keeps machine-readable JSON next to the human-ready memo
 
 ## Full Workflow
 

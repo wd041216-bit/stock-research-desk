@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "stock-research-desk"
 version = "0.5.0"
-description = "Cloud-only multi-agent stock research CLI with evidence ranking, investor councils, and scenario analysis."
+description = "Multi-agent equity research desk for single-name deep dives, theme screening, watchlists, and bilingual memo delivery."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

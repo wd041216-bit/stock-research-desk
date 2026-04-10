@@ -754,14 +754,26 @@ def run_screening_pipeline(
         theme=theme,
         market=market,
     )
+    initial_candidates = merge_seed_candidates(
+        candidates=initial_candidates,
+        seeds=build_seed_candidates(seed_tickers=seed_tickers, theme=theme, market=market),
+    )
     if not initial_candidates:
         initial_candidates = build_screening_fallback_candidates(
             extract_evidence_from_traces([scout.get("tool_traces", [])]),
             theme=theme,
             market=market,
         )
+        initial_candidates = merge_seed_candidates(
+            candidates=initial_candidates,
+            seeds=build_seed_candidates(seed_tickers=seed_tickers, theme=theme, market=market),
+        )
+    if verbose:
+        print(f"[screen] normalized candidates={len(initial_candidates)}")
     stage_one_count = min(max(desired_count * 4, desired_count + 4), len(initial_candidates))
     stage_one_seed = initial_candidates[:stage_one_count]
+    if verbose:
+        print(f"[screen] entering stage one diligence with {len(stage_one_seed)} candidates")
     stage_one: list[dict[str, Any]] = []
     for index, candidate in enumerate(stage_one_seed, start=1):
         if verbose:
@@ -790,13 +802,18 @@ def run_screening_pipeline(
         market=market,
         desired_count=desired_count,
         candidates=stage_one,
+        verbose=verbose,
     )
+    if verbose:
+        print(f"[screen] second screen returned {len(shortlist.get('recommended') or [])} recommendations")
     finalists = merge_screen_candidates(
         normalize_screen_candidates(shortlist.get("recommended"), theme=theme, market=market),
         references=stage_one,
     )[:desired_count]
     if not finalists:
         finalists = stage_one[:desired_count]
+    if verbose:
+        print(f"[screen] finalists={len(finalists)}")
 
     finalist_artifacts: list[dict[str, Any]] = []
     for index, candidate in enumerate(finalists, start=1):
@@ -943,7 +960,10 @@ def run_second_screen_committee(
     market: str,
     desired_count: int,
     candidates: list[dict[str, Any]],
+    verbose: bool = False,
 ) -> dict[str, Any]:
+    if verbose:
+        print("[screen] council round 1: bull case")
     bull_round = safe_run_agent_with_tools(
         client=client,
         name="screening_council_bull",
@@ -954,7 +974,10 @@ def run_second_screen_committee(
         user_prompt=build_screening_council_user_prompt(theme=theme, market=market, desired_count=desired_count, candidates=candidates),
         max_results=7,
         max_fetches=10,
+        verbose=verbose,
     )
+    if verbose:
+        print("[screen] council round 2: red team")
     red_round = safe_run_agent_with_tools(
         client=client,
         name="screening_council_red_team",
@@ -971,7 +994,10 @@ def run_second_screen_committee(
         ),
         max_results=7,
         max_fetches=10,
+        verbose=verbose,
     )
+    if verbose:
+        print("[screen] council round 3: reconsideration")
     reconsideration_round = safe_run_agent_with_tools(
         client=client,
         name="screening_council_reconsideration",
@@ -989,6 +1015,7 @@ def run_second_screen_committee(
         ),
         max_results=7,
         max_fetches=10,
+        verbose=verbose,
     )
     prompt = build_second_screen_prompt(
         theme=theme,
@@ -1008,6 +1035,8 @@ def run_second_screen_committee(
         },
     }
     try:
+        if verbose:
+            print("[screen] council final chair synthesis")
         response = chat_with_guard(
             client,
             timeout_seconds=timeout_seconds,
@@ -1032,9 +1061,13 @@ def run_second_screen_committee(
                     "reconsideration_round": reconsideration_round.content,
                 },
             )
+            if verbose:
+                print("[screen] council final chair completed")
             return parsed
     except Exception:
         pass
+    if verbose:
+        print("[screen] council fell back to ranked shortlist")
     return fallback
 
 
@@ -1729,7 +1762,8 @@ def build_screening_user_prompt(*, theme: str, desired_count: int, market: str, 
         "seed_tickers": seed_tickers,
         "goal": "先进行初筛，找出真正值得进入二筛和精筛的股票候选。",
     }
-    return f"请围绕这个板块方向去主动联网搜索并寻找股票候选：{json.dumps(payload, ensure_ascii=False)}"
+    market_guard = "如果 market=US，只能保留在美国上市或主要在美股交易的公司，禁止把 A 股、港股或私有公司混进候选池。"
+    return f"{market_guard} 请围绕这个板块方向去主动联网搜索并寻找股票候选：{json.dumps(payload, ensure_ascii=False)}"
 
 
 def build_screening_synthesis_prompt(
@@ -1752,6 +1786,7 @@ def build_screening_synthesis_prompt(
         "Each candidate must contain: company_name, ticker, market, rationale, screen_score, confidence, source_count, angle. "
         "screen_score must be 0-100 and represent whether the stock deserves deeper research, not final conviction. "
         "Prefer listed companies actually connected to the theme, not vague supply-chain mentions. "
+        "If market=US, candidates must be tradable US-listed names with US-style tickers, not mainland China A-shares, Hong Kong listings, or private companies. "
         f"Input: {json.dumps(payload, ensure_ascii=False)}"
     )
 
@@ -4007,6 +4042,70 @@ def screen_sort_key(item: dict[str, Any]) -> tuple[int, int, int]:
     return (score, source_count, confidence_rank)
 
 
+def looks_like_us_ticker(value: str) -> bool:
+    text = value.strip().upper()
+    return bool(re.fullmatch(r"[A-Z]{1,5}", text))
+
+
+def is_market_compatible_candidate(*, market: str, ticker: str, company_name: str, market_hint: str) -> bool:
+    normalized_market = market.upper().strip()
+    ticker_text = ticker.strip().upper()
+    company_text = company_name.strip()
+    hint_text = market_hint.upper().strip()
+    if normalized_market == "US":
+        if not looks_like_us_ticker(ticker_text):
+            return False
+        if any(token in ticker_text for token in [".SH", ".SZ", ".HK"]):
+            return False
+        if hint_text and hint_text not in {"US", "USA", "NASDAQ", "NYSE", "AMEX"}:
+            return False
+        if re.search(r"[\u4e00-\u9fff]", company_text) and not re.search(r"[A-Z]", company_text):
+            return False
+    if normalized_market == "CN":
+        if ticker_text and not bool(re.fullmatch(r"\d{6}(?:\.(?:SH|SZ))?", ticker_text)):
+            return False
+    return True
+
+
+def build_seed_candidates(*, seed_tickers: list[str], theme: str, market: str) -> list[dict[str, Any]]:
+    seeds: list[dict[str, Any]] = []
+    for raw in seed_tickers:
+        ticker = normalize_ticker(raw, "", market)
+        if not ticker:
+            continue
+        if not is_market_compatible_candidate(market=market, ticker=ticker, company_name=ticker, market_hint=market):
+            continue
+        seeds.append(
+            {
+                "company_name": ticker,
+                "ticker": ticker,
+                "market": market,
+                "rationale": f"用户提供的种子标的 `{ticker}`，与 `{theme}` 主题直接相关，必须进入候选池核验。",
+                "screen_score": 88,
+                "confidence": "medium",
+                "source_count": 1,
+                "angle": theme,
+                "why_now": f"种子标的 `{ticker}` 需要经过完整联网核验，判断其是否应进入完整精筛。",
+                "why_not_now": "当前仅为种子入口，尚未完成深度证据核验。",
+            }
+        )
+    return seeds
+
+
+def merge_seed_candidates(*, candidates: list[dict[str, Any]], seeds: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not seeds:
+        return candidates
+    combined = [*candidates]
+    existing = {slugify(item.get("ticker") or item.get("company_name") or "") for item in candidates}
+    for seed in seeds:
+        identifier = slugify(seed.get("ticker") or seed.get("company_name") or "")
+        if identifier not in existing:
+            combined.append(seed)
+    merged = merge_screen_candidates(combined, references=seeds)
+    merged.sort(key=screen_sort_key, reverse=True)
+    return merged
+
+
 def normalize_screen_candidates(value: Any, *, theme: str, market: str) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
@@ -4022,7 +4121,10 @@ def normalize_screen_candidates(value: Any, *, theme: str, market: str) -> list[
             ticker = normalize_ticker(raw_ticker, inferred_exchange, market)
         else:
             ticker = normalize_ticker(raw_ticker, "", market) if raw_ticker else ""
+        market_hint = str(item.get("market") or market).strip() or market
         if not company_name and not ticker:
+            continue
+        if not is_market_compatible_candidate(market=market, ticker=ticker, company_name=company_name or ticker, market_hint=market_hint):
             continue
         identifier = slugify(ticker or company_name)
         if identifier in seen:
@@ -4032,7 +4134,7 @@ def normalize_screen_candidates(value: Any, *, theme: str, market: str) -> list[
             {
                 "company_name": company_name or ticker,
                 "ticker": ticker,
-                "market": str(item.get("market") or market).strip() or market,
+                "market": market.upper().strip() or market,
                 "rationale": clean_research_summary(str(item.get("rationale") or item.get("why") or f"{company_name or ticker} 值得进一步研究。")),
                 "screen_score": max(0, min(100, int(item.get("screen_score") or 50))),
                 "confidence": normalize_confidence(str(item.get("confidence") or "medium")),
@@ -4071,6 +4173,8 @@ def build_screening_fallback_candidates(evidence: list[dict[str, str]], *, theme
             if not company_name:
                 company_name = ticker
         else:
+            continue
+        if not is_market_compatible_candidate(market=market, ticker=ticker, company_name=company_name or ticker, market_hint=market):
             continue
         identifier = slugify(ticker or company_name)
         if identifier in seen:

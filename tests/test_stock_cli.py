@@ -6,6 +6,7 @@ from stock_research_desk.stock_cli import (
     add_watchlist_entry,
     agent_output_outline,
     build_screening_fallback_candidates,
+    build_seed_candidates,
     build_agent_user_prompt,
     build_buy_side_synthesis_prompt,
     build_company_analyst_prompt,
@@ -43,6 +44,7 @@ from stock_research_desk.stock_cli import (
     load_memory_context,
     merge_evidence,
     merge_screen_candidates,
+    merge_seed_candidates,
     normalize_confidence,
     normalize_evidence,
     normalize_report_payload,
@@ -50,6 +52,8 @@ from stock_research_desk.stock_cli import (
     normalize_ticker,
     normalize_verdict,
     format_target_price_snapshot,
+    is_market_compatible_candidate,
+    looks_like_us_ticker,
     render_markdown,
     render_agent_trace_summary,
     resolve_think,
@@ -72,6 +76,32 @@ from stock_research_desk.stock_cli import (
 
 def test_slugify_keeps_chinese_and_strips_noise() -> None:
     assert slugify("赛腾股份 / 603283.SH") == "赛腾股份-603283-sh"
+
+
+def test_looks_like_us_ticker_accepts_plain_us_symbols() -> None:
+    assert looks_like_us_ticker("NPCE")
+    assert looks_like_us_ticker("WLDS")
+    assert not looks_like_us_ticker("603283.SH")
+    assert not looks_like_us_ticker("300007")
+
+
+def test_market_compatible_candidate_rejects_cn_names_for_us_screen() -> None:
+    assert is_market_compatible_candidate(market="US", ticker="NPCE", company_name="NeuroPace", market_hint="US")
+    assert not is_market_compatible_candidate(market="US", ticker="300007", company_name="汉威科技", market_hint="CN")
+
+
+def test_build_seed_candidates_keeps_user_supplied_us_symbols() -> None:
+    seeds = build_seed_candidates(seed_tickers=["NPCE", "WLDS"], theme="脑机接口", market="US")
+    assert [item["ticker"] for item in seeds] == ["NPCE", "WLDS"]
+
+
+def test_merge_seed_candidates_adds_missing_seed_and_keeps_orderable_scores() -> None:
+    merged = merge_seed_candidates(
+        candidates=[{"company_name": "NeuroOne", "ticker": "NMTC", "market": "US", "screen_score": 70, "confidence": "medium", "source_count": 2}],
+        seeds=[{"company_name": "NPCE", "ticker": "NPCE", "market": "US", "screen_score": 88, "confidence": "medium", "source_count": 1}],
+    )
+    assert {item["ticker"] for item in merged} == {"NMTC", "NPCE"}
+    assert merged[0]["ticker"] == "NPCE"
 
 
 def test_normalize_evidence_drops_empty_rows() -> None:
@@ -283,6 +313,19 @@ def test_build_screening_fallback_candidates_extracts_us_exchange_tickers() -> N
     )
     assert candidates[0]["ticker"] == "NPCE"
     assert "NeuroPace" in candidates[0]["company_name"]
+
+
+def test_normalize_screen_candidates_filters_non_us_names_when_screening_us() -> None:
+    normalized = normalize_screen_candidates(
+        [
+            {"company_name": "NeuroPace", "ticker": "NPCE", "market": "US", "screen_score": 82},
+            {"company_name": "汉威科技", "ticker": "300007", "market": "CN", "screen_score": 95},
+        ],
+        theme="脑机接口",
+        market="US",
+    )
+    assert len(normalized) == 1
+    assert normalized[0]["ticker"] == "NPCE"
 
 
 def test_should_replace_sentiment_summary_when_missing_role_views() -> None:

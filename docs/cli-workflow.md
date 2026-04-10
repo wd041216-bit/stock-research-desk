@@ -36,10 +36,9 @@ The second-screen council is no longer a single pass. It now includes:
 
 Artifacts:
 
-- `~/Desktop/Stock Research Desk/screenings/*-zh.docx`
-- `~/Desktop/Stock Research Desk/screenings/*-en.docx`
+- `~/Desktop/Stock Research Desk/screenings/*.md`
 - `~/Desktop/Stock Research Desk/screenings/*.json`
-- finalist DOCX memos in `~/Desktop/Stock Research Desk/reports/`
+- finalist Markdown memos in `~/Desktop/Stock Research Desk/reports/`
 
 ## Watchlist
 
@@ -59,8 +58,7 @@ Each watchlist item stores:
 
 When due entries are processed, the desk also writes:
 
-- `~/Desktop/Stock Research Desk/digests/*-watchlist-digest-zh.docx`
-- `~/Desktop/Stock Research Desk/digests/*-watchlist-digest-en.docx`
+- `~/Desktop/Stock Research Desk/digests/*-watchlist-digest.md`
 
 ## Email Control
 
@@ -114,6 +112,19 @@ Reply formats:
 - `~/Desktop/Stock Research Desk/memory_palace/*.json`
 - `~/Desktop/Stock Research Desk/screenings/*.md`
 - `~/Desktop/Stock Research Desk/screenings/*.json`
+
+## Codex Skill Add-On
+
+The repo also ships a separate Codex skill mode documented in [Codex Skill Mode](codex-skill.md).
+
+That additive mode can:
+
+- let Codex act as the main brain
+- use Codex web research first
+- produce separate Chinese and English DOCX reports
+- move recurring watchlists into Codex automations
+
+The default CLI documented on this page stays Markdown-and-JSON first.
 
 ## Recommended Flags
 

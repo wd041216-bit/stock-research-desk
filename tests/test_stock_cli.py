@@ -946,7 +946,7 @@ def test_run_due_watchlist_updates_next_run(monkeypatch: pytest.MonkeyPatch, tmp
     assert result["processed"] == 1
     assert updated[0]["last_report_path"] == "/tmp/report.md"
     assert updated[0]["next_run_at"] != "2026-04-01T00:00:00+00:00"
-    assert result["digest_path"].endswith(".docx")
+    assert result["digest_path"].endswith(".md")
 
 
 def test_render_watchlist_digest_markdown_includes_verdict_and_path() -> None:

@@ -2,7 +2,7 @@
 
 ![Stock Research Desk banner](assets/banner.svg)
 
-Cloud-only multi-agent stock research for serious single-name work, now with Codex-native operation and bilingual DOCX delivery.
+Cloud-only multi-agent stock research for serious single-name work, with an additive Codex-native skill mode.
 
 `stock-research-desk` can now do three kinds of work:
 
@@ -15,13 +15,14 @@ Cloud-only multi-agent stock research for serious single-name work, now with Cod
 The repo now supports two host modes:
 
 - terminal-first cloud execution through Ollama Cloud
-- Codex-native execution where Codex becomes the main brain, uses its own web research first, and writes final DOCX outputs to the desktop workspace
+- Codex-native execution where Codex becomes the main brain, uses its own web research first, and can write separate Chinese and English DOCX outputs to the desktop workspace
 
 In practice, that means you can use it in three modes:
 
 - type one stock into the terminal and get a buy-side-style memo
 - give it a sector direction and let it narrow candidates before expensive deep work
 - treat your mailbox like a lightweight research command queue
+- add Codex as an extra operating layer without changing the original CLI flow
 
 ## What It Is
 
@@ -111,12 +112,16 @@ Run a first memo:
 ./bin/research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事"
 ```
 
-The command writes:
+The default CLI command writes:
+
+- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.md`
+- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.json`
+- `~/Desktop/Stock Research Desk/memory_palace/<ticker>.json`
+
+If you use the separate Codex skill mode, Codex can additionally generate:
 
 - `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-zh.docx`
 - `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-en.docx`
-- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.json`
-- `~/Desktop/Stock Research Desk/memory_palace/<ticker>.json`
 
 Run a theme screen:
 
@@ -223,6 +228,8 @@ In Codex-native mode:
 - `cross-validated-search` is only a fallback when a search/fetch step explicitly errors
 - recurring watchlists should be scheduled through Codex automations, not the repo's older internal scheduler
 - final deliverables should be kept as separate Chinese and English DOCX reports
+
+This is an additional mode, not a replacement for the default CLI and mailbox workflows.
 
 ## Example Output Shape
 

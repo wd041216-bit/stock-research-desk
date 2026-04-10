@@ -20,15 +20,7 @@ from urllib.request import urlopen
 
 from ollama import Client
 
-from .documents import (
-    build_english_report_fallback,
-    build_english_screening_fallback,
-    build_screening_doc_payload,
-    contains_cjk,
-    write_report_docx,
-    write_screening_docx,
-    write_watchlist_digest_docx,
-)
+from .documents import contains_cjk
 from .persona_pack import get_persona_blend, render_persona_instruction
 from .runtime import parse_structured_response
 
@@ -352,8 +344,7 @@ def dispatch_command(args: argparse.Namespace) -> None:
             config=config,
             verbose=True,
         )
-        print(f"Saved Chinese report to: {artifact['zh_docx_path']}")
-        print(f"Saved English report to: {artifact['en_docx_path']}")
+        print(f"Saved markdown report to: {artifact['markdown_path']}")
         print(f"Saved json payload to: {artifact['json_path']}")
         if artifact.get("memory_path"):
             print(f"Updated memory context at: {artifact['memory_path']}")
@@ -377,8 +368,7 @@ def dispatch_command(args: argparse.Namespace) -> None:
             config=config,
             verbose=True,
         )
-        print(f"Saved Chinese screening brief to: {artifact['zh_docx_path']}")
-        print(f"Saved English screening brief to: {artifact['en_docx_path']}")
+        print(f"Saved screening markdown to: {artifact['markdown_path']}")
         print(f"Saved screening json to: {artifact['json_path']}")
         for path in artifact.get("report_paths", []):
             print(f"Generated finalist memo: {path}")
@@ -420,11 +410,9 @@ def dispatch_command(args: argparse.Namespace) -> None:
             result = run_due_watchlist(paths=paths, config=config, limit=args.limit, verbose=True)
             print(f"Processed {result['processed']} due entries.")
             for item in result["artifacts"]:
-                print(f"- {item['identifier']}: {item['primary_document_path']}")
-            if result.get("zh_digest_path"):
-                print(f"Saved Chinese watchlist digest to: {result['zh_digest_path']}")
-            if result.get("en_digest_path"):
-                print(f"Saved English watchlist digest to: {result['en_digest_path']}")
+                print(f"- {item['identifier']}: {item['markdown_path']}")
+            if result.get("digest_path"):
+                print(f"Saved watchlist digest to: {result['digest_path']}")
             return
 
     if args.command == "email":
@@ -775,25 +763,13 @@ def run_stock_research(
     )
     slug = slugify(normalized["ticker"] or normalized["company_name"] or stock_name)
     timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    document_paths = build_report_document_paths(reports_dir=config.reports_dir, timestamp=timestamp, slug=slug)
+    markdown_path = config.reports_dir / f"{timestamp}-{slug}.md"
     json_path = config.reports_dir / f"{timestamp}-{slug}.json"
-    zh_payload = {**normalized, "model": config.model}
-    en_payload = translate_structured_payload(
-        client,
-        model=config.model,
-        think=config.think,
-        timeout_seconds=config.timeout_seconds,
-        payload=zh_payload,
-        task_label="single-name stock research memo",
-        fallback_payload=build_english_report_fallback(zh_payload),
-    )
-    write_report_docx(document_paths["zh"], payload=zh_payload, language="zh")
-    write_report_docx(document_paths["en"], payload=en_payload, language="en")
+    markdown_path.write_text(normalized["report_markdown"], encoding="utf-8")
     json_path.write_text(
         json.dumps(
             {
                 **normalized,
-                "document_paths": {"zh": str(document_paths["zh"]), "en": str(document_paths["en"])},
                 "agent_outputs": {
                     market_analyst.name: market_analyst.content,
                     company_analyst.name: company_analyst.content,
@@ -855,10 +831,7 @@ def run_stock_research(
         elapsed = round(time.perf_counter() - started, 1)
         print(f"[stock-research] completed in {elapsed}s")
     return {
-        "zh_docx_path": str(document_paths["zh"]),
-        "en_docx_path": str(document_paths["en"]),
-        "primary_document_path": str(document_paths["zh"]),
-        "markdown_path": str(document_paths["zh"]),
+        "markdown_path": str(markdown_path),
         "json_path": str(json_path),
         "memory_path": str(memory_path),
         "payload": normalized,
@@ -1013,17 +986,16 @@ def run_screening_pipeline(
                 "ticker": candidate.get("ticker", ""),
                 "screen_score": candidate.get("screen_score", 50),
                 "stage_two_note": candidate.get("rationale", ""),
-                "zh_docx_path": artifact["zh_docx_path"],
-                "en_docx_path": artifact["en_docx_path"],
-                "primary_document_path": artifact["primary_document_path"],
+                "primary_document_path": artifact["markdown_path"],
                 "json_path": artifact["json_path"],
+                "markdown_path": artifact["markdown_path"],
                 "payload": artifact.get("payload", {}),
             }
         )
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     slug = slugify(theme)
-    document_paths = build_screening_document_paths(screens_dir=config.screens_dir, timestamp=timestamp, slug=f"{slug}-screening")
+    markdown_path = config.screens_dir / f"{timestamp}-{slug}-screening.md"
     json_path = config.screens_dir / f"{timestamp}-{slug}-screening.json"
     summary_payload = {
         "theme": theme,
@@ -1035,30 +1007,18 @@ def run_screening_pipeline(
         "finalists": finalist_artifacts,
         "generated_at": datetime.now(UTC).isoformat(),
     }
-    screening_doc_payload = build_screening_doc_payload(
-        theme=theme,
-        market=market,
-        stage_one_candidates=stage_one,
-        finalists=finalist_artifacts,
+    markdown_path.write_text(
+        render_screening_markdown(
+            theme=theme,
+            market=market,
+            stage_one_candidates=stage_one,
+            finalists=finalist_artifacts,
+        ),
+        encoding="utf-8",
     )
-    screening_doc_payload["generated_at"] = summary_payload["generated_at"]
-    en_screening_payload = translate_structured_payload(
-        client,
-        model=config.model,
-        think=config.think,
-        timeout_seconds=config.timeout_seconds,
-        payload=screening_doc_payload,
-        task_label="theme screening summary",
-        fallback_payload=build_english_screening_fallback(screening_doc_payload),
-    )
-    write_screening_docx(document_paths["zh"], payload=screening_doc_payload, language="zh")
-    write_screening_docx(document_paths["en"], payload=en_screening_payload, language="en")
     json_path.write_text(json.dumps(summary_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return {
-        "zh_docx_path": str(document_paths["zh"]),
-        "en_docx_path": str(document_paths["en"]),
-        "primary_document_path": str(document_paths["zh"]),
-        "markdown_path": str(document_paths["zh"]),
+        "markdown_path": str(markdown_path),
         "json_path": str(json_path),
         "report_paths": [item["primary_document_path"] for item in finalist_artifacts],
         "payload": summary_payload,
@@ -1564,44 +1524,26 @@ def run_due_watchlist(
         )
         processed += 1
         entry["last_run_at"] = now.isoformat()
-        primary_document_path = str(
-            artifact.get("primary_document_path")
-            or artifact.get("zh_docx_path")
-            or artifact.get("markdown_path")
-            or ""
-        )
-        entry["last_report_path"] = primary_document_path
+        entry["last_report_path"] = artifact["markdown_path"]
         entry["next_run_at"] = (now.timestamp() + int(entry.get("interval_hours", 24)) * 3600)
         entry["next_run_at"] = datetime.fromtimestamp(entry["next_run_at"], UTC).isoformat()
         artifacts.append(
             {
                 "identifier": entry["identifier"],
-                "zh_docx_path": str(artifact.get("zh_docx_path") or primary_document_path),
-                "en_docx_path": str(artifact.get("en_docx_path") or ""),
-                "primary_document_path": primary_document_path,
-                "markdown_path": primary_document_path,
+                "markdown_path": artifact["markdown_path"],
                 "verdict": (artifact.get("payload") or {}).get("verdict", "watchlist"),
                 "quick_take": (artifact.get("payload") or {}).get("quick_take", ""),
                 "target_snapshot": format_target_price_snapshot((artifact.get("payload") or {}).get("target_prices") or {}),
             }
         )
     save_watchlist(paths, entries)
-    zh_digest_path = ""
-    en_digest_path = ""
+    digest_path = ""
     if artifacts:
         timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-        digest_paths = build_watchlist_digest_document_paths(digests_dir=paths.digests_dir, timestamp=timestamp)
-        write_watchlist_digest_docx(digest_paths["zh"], artifacts=artifacts, language="zh")
-        write_watchlist_digest_docx(digest_paths["en"], artifacts=artifacts, language="en")
-        zh_digest_path = str(digest_paths["zh"])
-        en_digest_path = str(digest_paths["en"])
-    return {
-        "processed": processed,
-        "artifacts": artifacts,
-        "zh_digest_path": zh_digest_path,
-        "en_digest_path": en_digest_path,
-        "digest_path": zh_digest_path,
-    }
+        digest_path_obj = paths.digests_dir / f"{timestamp}-watchlist-digest.md"
+        digest_path_obj.write_text(render_watchlist_digest_markdown(artifacts), encoding="utf-8")
+        digest_path = str(digest_path_obj)
+    return {"processed": processed, "artifacts": artifacts, "digest_path": digest_path}
 
 
 def load_watchlist(paths: WorkspacePaths) -> list[dict[str, Any]]:
@@ -1646,7 +1588,7 @@ def render_watchlist_digest_markdown(artifacts: list[dict[str, str]]) -> str:
                 f"- Verdict: `{item.get('verdict', 'watchlist')}`",
                 f"- Quick take: {item.get('quick_take', '') or 'n/a'}",
                 f"- Target snapshot: {item.get('target_snapshot', '') or 'n/a'}",
-                f"- Report: `{item.get('primary_document_path', '') or item.get('zh_docx_path', '') or item.get('markdown_path', '')}`",
+                f"- Report: `{item.get('markdown_path', '')}`",
                 "",
             ]
         )
@@ -1854,8 +1796,8 @@ def execute_email_command(
             verbose=verbose,
         )
         payload = artifact.get("payload", {})
-        body = render_email_research_reply(payload, artifact["primary_document_path"])
-        return {"body": body, "attachments": [artifact["zh_docx_path"], artifact["en_docx_path"], artifact["json_path"]]}
+        body = render_email_research_reply(payload, artifact["markdown_path"])
+        return {"body": body, "attachments": [artifact["markdown_path"], artifact["json_path"]]}
     if kind == "screen":
         artifact = run_screening_pipeline(
             theme=command["theme"],
@@ -1866,8 +1808,8 @@ def execute_email_command(
             config=config,
             verbose=verbose,
         )
-        body = render_email_screen_reply(theme=command["theme"], payload=artifact["payload"], markdown_path=artifact["primary_document_path"])
-        attachments = [artifact["zh_docx_path"], artifact["en_docx_path"], artifact["json_path"], *artifact.get("report_paths", [])]
+        body = render_email_screen_reply(theme=command["theme"], payload=artifact["payload"], markdown_path=artifact["markdown_path"])
+        attachments = [artifact["markdown_path"], artifact["json_path"], *artifact.get("report_paths", [])]
         return {"body": body, "attachments": attachments}
     if kind == "watchlist_add":
         entry = add_watchlist_entry(
@@ -1895,8 +1837,8 @@ def execute_email_command(
     if kind == "watchlist_run_due":
         result = run_due_watchlist(paths=paths, config=config, limit=10, verbose=verbose)
         body = render_email_watchlist_digest_reply(result)
-        attachments = [item for item in [result.get("zh_digest_path"), result.get("en_digest_path")] if item]
-        attachments.extend(item["primary_document_path"] for item in result["artifacts"])
+        attachments = [result["digest_path"]] if result.get("digest_path") else []
+        attachments.extend(item["markdown_path"] for item in result["artifacts"])
         return {"body": body, "attachments": attachments}
     raise RuntimeError(f"Unsupported email command: {kind}")
 
@@ -2006,8 +1948,8 @@ def render_email_watchlist_digest_reply(result: dict[str, Any]) -> str:
         "",
         f"- Refreshed names: {result.get('processed', 0)}",
     ]
-    if result.get("zh_digest_path") or result.get("en_digest_path"):
-        lines.append(f"- Attached digest bundle: {result.get('zh_digest_path') or result.get('en_digest_path')}")
+    if result.get("digest_path"):
+        lines.append(f"- Attached digest: {result['digest_path']}")
     lines.extend(["", "Desk highlights:"])
     if not artifacts:
         lines.append("- No watchlist names were due in this cycle.")

@@ -63,8 +63,10 @@ from stock_research_desk.stock_cli import (
     normalize_ticker,
     normalize_verdict,
     format_target_price_snapshot,
+    fetch_company_name_from_ticker,
     derive_company_identity,
     default_sector_query_axes,
+    default_desktop_delivery_dir,
     is_market_compatible_candidate,
     looks_like_us_ticker,
     sector_profile_for,
@@ -86,6 +88,7 @@ from stock_research_desk.stock_cli import (
     render_watchlist_digest_markdown,
     render_email_watchlist_digest_reply,
     render_email_watchlist_roster_reply,
+    resolve_stock_name,
     unique_attachment_paths,
 )
 
@@ -617,15 +620,21 @@ def test_load_config_rejects_localhost(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_default_workspace_home_prefers_desktop(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv("STOCK_RESEARCH_DESK_HOME", raising=False)
     monkeypatch.setattr("stock_research_desk.stock_cli.Path.home", classmethod(lambda cls: tmp_path))
-    assert default_workspace_home() == (tmp_path / "Desktop" / "Stock Research Desk").resolve()
+    assert default_workspace_home() == (tmp_path / ".stock-research-desk").resolve()
+
+
+def test_default_desktop_delivery_dir_points_to_desktop(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("stock_research_desk.stock_cli.Path.home", classmethod(lambda cls: tmp_path))
+    assert default_desktop_delivery_dir() == (tmp_path / "Desktop").resolve()
 
 
 def test_resolve_workspace_paths_builds_desktop_tree(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("STOCK_RESEARCH_DESK_HOME", str(tmp_path / "desk-home"))
+    monkeypatch.setattr("stock_research_desk.stock_cli.Path.home", classmethod(lambda cls: tmp_path))
     paths = resolve_workspace_paths("reports")
-    assert paths.reports_dir == (tmp_path / "desk-home" / "reports").resolve()
+    assert paths.reports_dir == (tmp_path / "Desktop").resolve()
     assert paths.memory_dir == (tmp_path / "desk-home" / "memory_palace").resolve()
-    assert paths.screens_dir == (tmp_path / "desk-home" / "screenings").resolve()
+    assert paths.screens_dir == (tmp_path / "Desktop").resolve()
     assert paths.watchlist_path == (tmp_path / "desk-home" / "watchlist.json").resolve()
 
 
@@ -964,6 +973,7 @@ def test_watchlist_add_and_remove_round_trip(monkeypatch: pytest.MonkeyPatch, tm
 
 def test_resolve_workspace_paths_enables_single_document_delivery_on_desktop(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("STOCK_RESEARCH_DESK_HOME", str(tmp_path / "desk-home"))
+    monkeypatch.setattr("stock_research_desk.stock_cli.Path.home", classmethod(lambda cls: tmp_path))
     paths = resolve_workspace_paths("reports")
     assert paths.single_document_delivery is True
     assert paths.artifacts_dir.exists()
@@ -971,6 +981,26 @@ def test_resolve_workspace_paths_enables_single_document_delivery_on_desktop(mon
     digest_paths = build_watchlist_digest_document_paths(digests_dir=paths.digests_dir, timestamp="20260410-000000", single_document=paths.single_document_delivery)
     assert report_paths["primary"] == report_paths["zh"] == report_paths["en"]
     assert digest_paths["primary"] == digest_paths["zh"] == digest_paths["en"]
+
+
+def test_fetch_company_name_from_ticker_reads_cn_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return b'{"data":{"f58":"\xe8\xb5\x9b\xe8\x85\xbe\xe8\x82\xa1\xe4\xbb\xbd"}}'
+
+    monkeypatch.setattr("stock_research_desk.stock_cli.urlopen", lambda *args, **kwargs: FakeResponse())
+    assert fetch_company_name_from_ticker("603283.SH", "CN") == "赛腾股份"
+
+
+def test_resolve_stock_name_prefers_company_lookup_for_ticker_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("stock_research_desk.stock_cli.fetch_company_name_from_ticker", lambda ticker, market: "赛腾股份")
+    assert resolve_stock_name(stock_name="603283.SH", ticker="603283.SH", market="CN") == "赛腾股份"
 
 
 def test_load_local_env_file_populates_missing_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

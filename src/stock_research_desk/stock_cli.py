@@ -504,7 +504,11 @@ def default_workspace_home() -> Path:
     configured = os.getenv("STOCK_RESEARCH_DESK_HOME", "").strip()
     if configured:
         return Path(configured).expanduser().resolve()
-    return (Path.home() / "Desktop" / "Stock Research Desk").resolve()
+    return (Path.home() / ".stock-research-desk").resolve()
+
+
+def default_desktop_delivery_dir() -> Path:
+    return (Path.home() / "Desktop").resolve()
 
 
 def _is_within_workspace(path: Path, workspace_dir: Path) -> bool:
@@ -519,14 +523,18 @@ def resolve_workspace_paths(output_dir: str) -> WorkspacePaths:
     workspace_dir = default_workspace_home()
     workspace_dir.mkdir(parents=True, exist_ok=True)
     output_path = Path(output_dir).expanduser()
-    reports_dir = output_path.resolve() if output_path.is_absolute() else (workspace_dir / output_path).resolve()
+    desktop_dir = default_desktop_delivery_dir()
+    if output_path.is_absolute():
+        reports_dir = output_path.resolve()
+    else:
+        reports_dir = desktop_dir.resolve()
     memory_dir = (workspace_dir / "memory_palace").resolve()
-    screens_dir = (workspace_dir / "screenings").resolve()
-    digests_dir = (workspace_dir / "digests").resolve()
+    screens_dir = reports_dir
+    digests_dir = reports_dir
     artifacts_dir = (workspace_dir / ".internal").resolve()
     watchlist_path = (workspace_dir / "watchlist.json").resolve()
     email_state_path = (workspace_dir / "email_state.json").resolve()
-    single_document_delivery = _is_within_workspace(reports_dir, workspace_dir)
+    single_document_delivery = _is_within_workspace(reports_dir, desktop_dir) or reports_dir == desktop_dir
     reports_dir.mkdir(parents=True, exist_ok=True)
     memory_dir.mkdir(parents=True, exist_ok=True)
     screens_dir.mkdir(parents=True, exist_ok=True)
@@ -593,6 +601,7 @@ def run_stock_research(
     config: StockResearchConfig,
     verbose: bool = False,
 ) -> dict[str, str]:
+    stock_name = resolve_stock_name(stock_name=stock_name, ticker=ticker, market=market)
     memory_context = load_memory_context(
         memory_dir=config.memory_dir,
         stock_name=stock_name,
@@ -4946,6 +4955,38 @@ def fetch_latest_price(ticker: str) -> float | None:
     except Exception:
         return None
     return value if value > 0 else None
+
+
+def fetch_company_name_from_ticker(ticker: str, market: str) -> str | None:
+    normalized_market = market.upper().strip()
+    normalized_ticker = normalize_ticker(ticker, "", normalized_market)
+    if normalized_market != "CN":
+        return None
+    secid = eastmoney_secid(normalized_ticker)
+    if not secid:
+        return None
+    url = f"https://push2.eastmoney.com/api/qt/stock/get?secid={secid}&fields=f57,f58"
+    try:
+        with urlopen(url, timeout=10) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        return None
+    data = (payload or {}).get("data") or {}
+    company_name = str(data.get("f58") or "").strip()
+    return company_name or None
+
+
+def resolve_stock_name(*, stock_name: str, ticker: str | None, market: str) -> str:
+    clean_name = stock_name.strip()
+    clean_ticker = normalize_ticker(ticker or "", "", market) if ticker else ""
+    if clean_name and not (clean_ticker and clean_name.upper() == clean_ticker.upper()):
+        return clean_name
+    if clean_ticker:
+        looked_up = fetch_company_name_from_ticker(clean_ticker, market)
+        if looked_up:
+            return looked_up
+        return clean_ticker
+    return clean_name
 
 
 def eastmoney_secid(ticker: str) -> str:

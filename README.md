@@ -156,14 +156,13 @@ You can still use the legacy style when you want to pin a display name:
 
 The default desktop delivery writes:
 
-- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.docx`
-- `~/Desktop/Stock Research Desk/memory_palace/<ticker>.json`
+- `~/Desktop/<timestamp>-<ticker>.docx`
 
-The desktop document contains a Chinese section first and an English section on a separate page. Internal machine payloads are still saved under `~/Desktop/Stock Research Desk/.internal/`.
+The desktop document contains a Chinese section first and an English section on a separate page. Internal machine payloads, memory snapshots, watchlists, and email state are saved under `~/.stock-research-desk/`.
 
 The separate Codex skill mode uses the same document-first delivery shape:
 
-- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.docx`
+- `~/Desktop/<timestamp>-<ticker>.docx`
 
 Run a theme screen:
 
@@ -177,7 +176,7 @@ That will:
 - turn the shortlisted names into mini-dossiers with vertical + horizontal web diligence
 - run a multi-stage second-screen guru council on those dossiers
 - run full deep research on the finalists
-- save a screening summary to `~/Desktop/Stock Research Desk/screenings/`
+- save a screening summary and finalist memos directly to `~/Desktop/`
 
 Add a recurring watchlist entry:
 
@@ -316,14 +315,14 @@ Key variables:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `OLLAMA_API_KEY` | required | Ollama Cloud API key |
-| `STOCK_RESEARCH_DESK_HOME` | `~/Desktop/Stock Research Desk` | default desktop workspace |
+| `STOCK_RESEARCH_DESK_HOME` | `~/.stock-research-desk` | hidden internal state, memory, watchlists, and machine artifacts |
 | `STOCK_RESEARCH_DESK_MODEL` | `kimi-k2.5:cloud` | default research model |
 | `STOCK_RESEARCH_DESK_THINK` | `high` | reasoning depth |
 | `STOCK_RESEARCH_DESK_MAX_RESULTS` | `5` | max web search results per step |
 | `STOCK_RESEARCH_DESK_MAX_FETCHES` | `6` | max page fetches per step |
 | `STOCK_RESEARCH_DESK_TIMEOUT_SECONDS` | `45` | per-call timeout |
 | `STOCK_RESEARCH_DESK_OLLAMA_HOST` | `https://ollama.com` | cloud host |
-| `STOCK_RESEARCH_DESK_OUTPUT_DIR` | `reports` | report directory under the desktop workspace |
+| `STOCK_RESEARCH_DESK_OUTPUT_DIR` | `reports` | desktop-delivery mode; final DOCX files land directly on `~/Desktop/` |
 | `STOCK_RESEARCH_DESK_EMAIL_PROVIDER` | `qq` | mailbox preset |
 | `STOCK_RESEARCH_DESK_EMAIL_ADDRESS` | optional | inbound / outbound mailbox |
 | `STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD` | optional | SMTP/IMAP authorization code |

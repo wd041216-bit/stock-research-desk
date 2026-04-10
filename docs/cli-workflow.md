@@ -42,9 +42,9 @@ The second-screen council is no longer a single pass. It now includes:
 
 Artifacts:
 
-- `~/Desktop/Stock Research Desk/screenings/*.docx`
-- finalist DOCX memos in `~/Desktop/Stock Research Desk/reports/`
-- internal machine payloads in `~/Desktop/Stock Research Desk/.internal/screenings/`
+- screening DOCX files directly on `~/Desktop/`
+- finalist DOCX memos directly on `~/Desktop/`
+- internal machine payloads in `~/.stock-research-desk/.internal/screenings/`
 
 ## Watchlist
 
@@ -113,11 +113,9 @@ Reply formats:
 
 ## Artifacts
 
-- `~/Desktop/Stock Research Desk/reports/*.docx`
-- `~/Desktop/Stock Research Desk/memory_palace/*.json`
-- `~/Desktop/Stock Research Desk/screenings/*.docx`
-- `~/Desktop/Stock Research Desk/digests/*.docx`
-- `~/Desktop/Stock Research Desk/.internal/**/*.json`
+- final report, screening, and digest DOCX files directly on `~/Desktop/`
+- memory snapshots in `~/.stock-research-desk/memory_palace/`
+- internal machine payloads in `~/.stock-research-desk/.internal/`
 
 ## Codex Skill Add-On
 

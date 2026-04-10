@@ -26,6 +26,7 @@ from .runtime import parse_structured_response
 
 DEFAULT_HOST = "https://ollama.com"
 DEFAULT_MODEL = "kimi-k2.5:cloud"
+CROSS_VALIDATED_SEARCH_ROOT = Path(__file__).resolve().parents[3] / "tmp" / "cross-validated-search"
 
 DOMAIN_QUALITY_OVERRIDES: dict[str, int] = {
     "cninfo.com.cn": 96,
@@ -421,6 +422,7 @@ def run_stock_research(
         name="market_analyst",
         model=config.model,
         think=config.think,
+        timeout_seconds=config.timeout_seconds,
         system_prompt=build_market_analyst_prompt(config.max_results, config.max_fetches),
         user_prompt=build_agent_user_prompt(
             stock_name=stock_name,
@@ -439,6 +441,7 @@ def run_stock_research(
         name="company_analyst",
         model=config.model,
         think=config.think,
+        timeout_seconds=config.timeout_seconds,
         system_prompt=build_company_analyst_prompt(config.max_results, config.max_fetches),
         user_prompt=build_agent_user_prompt(
             stock_name=stock_name,
@@ -457,6 +460,7 @@ def run_stock_research(
         name="sentiment_simulator",
         model=config.model,
         think=config.think,
+        timeout_seconds=config.timeout_seconds,
         system_prompt=build_sentiment_simulator_prompt(config.max_results, config.max_fetches),
         user_prompt=build_agent_user_prompt(
             stock_name=stock_name,
@@ -475,6 +479,7 @@ def run_stock_research(
         name="comparison_analyst",
         model=config.model,
         think=config.think,
+        timeout_seconds=config.timeout_seconds,
         system_prompt=build_comparison_analyst_prompt(config.max_results, config.max_fetches),
         user_prompt=build_agent_user_prompt(
             stock_name=stock_name,
@@ -492,6 +497,7 @@ def run_stock_research(
         client=client,
         model=config.model,
         think=config.think,
+        timeout_seconds=config.timeout_seconds,
         name="committee_red_team",
         system_prompt=build_red_team_prompt(),
         user_prompt=build_red_team_user_prompt(
@@ -514,6 +520,7 @@ def run_stock_research(
         client=client,
         model=config.model,
         think=config.think,
+        timeout_seconds=config.timeout_seconds,
         name="guru_council",
         system_prompt=build_guru_council_prompt(),
         user_prompt=build_guru_council_user_prompt(
@@ -538,6 +545,7 @@ def run_stock_research(
         client=client,
         model=config.model,
         think=config.think,
+        timeout_seconds=config.timeout_seconds,
         name="mirofish_scenario_engine",
         system_prompt=build_mirofish_scenario_prompt(),
         user_prompt=build_mirofish_scenario_user_prompt(
@@ -565,6 +573,7 @@ def run_stock_research(
         name="price_committee",
         model=config.model,
         think=config.think,
+        timeout_seconds=config.timeout_seconds,
         system_prompt=build_price_committee_prompt(config.max_results, config.max_fetches),
         user_prompt=build_agent_user_prompt(
             stock_name=stock_name,
@@ -731,6 +740,7 @@ def run_screening_pipeline(
         client=client,
         model=config.model,
         think=config.think,
+        timeout_seconds=config.timeout_seconds,
         theme=theme,
         desired_count=desired_count,
         market=market,
@@ -761,6 +771,7 @@ def run_screening_pipeline(
                 client=client,
                 model=config.model,
                 think=config.think,
+                timeout_seconds=config.timeout_seconds,
                 theme=theme,
                 market=market,
                 candidate=candidate,
@@ -774,6 +785,7 @@ def run_screening_pipeline(
         client=client,
         model=config.model,
         think=config.think,
+        timeout_seconds=config.timeout_seconds,
         theme=theme,
         market=market,
         desired_count=desired_count,
@@ -848,6 +860,7 @@ def run_screening_scout(
     client: Client,
     model: str,
     think: str,
+    timeout_seconds: float,
     theme: str,
     desired_count: int,
     market: str,
@@ -866,7 +879,9 @@ def run_screening_scout(
     fetch_count = 0
     if verbose:
         print("[screen] scouting candidates")
-    planning_response = client.chat(
+    planning_response = chat_with_guard(
+        client,
+        timeout_seconds=timeout_seconds,
         model=model,
         messages=messages,
         tools=[client.web_search, client.web_fetch],
@@ -880,12 +895,12 @@ def run_screening_scout(
         arguments = dict(function.arguments or {})
         if tool_name == "web_search":
             arguments["max_results"] = min(int(arguments.get("max_results", max_results)), max_results)
-            result = client.web_search(**arguments).model_dump()
+            result = perform_search_with_fallback(client=client, market=market, **arguments)
         elif tool_name == "web_fetch":
             if fetch_count >= max_fetches:
                 result = {"error": "fetch budget exhausted"}
             else:
-                result = client.web_fetch(**arguments).model_dump()
+                result = perform_fetch_with_fallback(client=client, **arguments)
                 fetch_count += 1
         else:
             result = {"error": f"unsupported tool: {tool_name}"}
@@ -899,7 +914,9 @@ def run_screening_scout(
         seed_tickers=seed_tickers,
     )
     try:
-        response = client.chat(
+        response = chat_with_guard(
+            client,
+            timeout_seconds=timeout_seconds,
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -921,20 +938,84 @@ def run_second_screen_committee(
     client: Client,
     model: str,
     think: str,
+    timeout_seconds: float,
     theme: str,
     market: str,
     desired_count: int,
     candidates: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    prompt = build_second_screen_prompt(theme=theme, market=market, desired_count=desired_count, candidates=candidates)
-    fallback = {"recommended": sorted(candidates, key=screen_sort_key, reverse=True)[:desired_count]}
+    bull_round = safe_run_agent_with_tools(
+        client=client,
+        name="screening_council_bull",
+        model=model,
+        think=think,
+        timeout_seconds=timeout_seconds,
+        system_prompt=build_screening_council_bull_prompt(),
+        user_prompt=build_screening_council_user_prompt(theme=theme, market=market, desired_count=desired_count, candidates=candidates),
+        max_results=7,
+        max_fetches=10,
+    )
+    red_round = safe_run_agent_with_tools(
+        client=client,
+        name="screening_council_red_team",
+        model=model,
+        think=think,
+        timeout_seconds=timeout_seconds,
+        system_prompt=build_screening_council_red_prompt(),
+        user_prompt=build_screening_council_red_user_prompt(
+            theme=theme,
+            market=market,
+            desired_count=desired_count,
+            candidates=candidates,
+            bull_round=bull_round,
+        ),
+        max_results=7,
+        max_fetches=10,
+    )
+    reconsideration_round = safe_run_agent_with_tools(
+        client=client,
+        name="screening_council_reconsideration",
+        model=model,
+        think=think,
+        timeout_seconds=timeout_seconds,
+        system_prompt=build_screening_council_reconsider_prompt(),
+        user_prompt=build_screening_council_reconsider_user_prompt(
+            theme=theme,
+            market=market,
+            desired_count=desired_count,
+            candidates=candidates,
+            bull_round=bull_round,
+            red_round=red_round,
+        ),
+        max_results=7,
+        max_fetches=10,
+    )
+    prompt = build_second_screen_prompt(
+        theme=theme,
+        market=market,
+        desired_count=desired_count,
+        candidates=candidates,
+        bull_round=bull_round.content,
+        red_round=red_round.content,
+        reconsideration_round=reconsideration_round.content,
+    )
+    fallback = {
+        "recommended": sorted(candidates, key=screen_sort_key, reverse=True)[:desired_count],
+        "committee_notes": {
+            "bull_round": bull_round.content,
+            "red_round": red_round.content,
+            "reconsideration_round": reconsideration_round.content,
+        },
+    }
     try:
-        response = client.chat(
+        response = chat_with_guard(
+            client,
+            timeout_seconds=timeout_seconds,
             model=model,
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a disciplined stock-screening committee. Return JSON only.",
+                    "content": "You are the chair of a disciplined multi-stage stock screening council. Return JSON only.",
                 },
                 {"role": "user", "content": prompt},
             ],
@@ -943,6 +1024,14 @@ def run_second_screen_committee(
         )
         parsed, _ = parse_structured_response(response.message.content or "")
         if isinstance(parsed, dict):
+            parsed.setdefault(
+                "committee_notes",
+                {
+                    "bull_round": bull_round.content,
+                    "red_round": red_round.content,
+                    "reconsideration_round": reconsideration_round.content,
+                },
+            )
             return parsed
     except Exception:
         pass
@@ -954,6 +1043,7 @@ def run_screening_diligence(
     client: Client,
     model: str,
     think: str,
+    timeout_seconds: float,
     theme: str,
     market: str,
     candidate: dict[str, Any],
@@ -966,6 +1056,7 @@ def run_screening_diligence(
         name="screening_diligence",
         model=model,
         think=think,
+        timeout_seconds=timeout_seconds,
         system_prompt=build_screening_diligence_prompt(max_results=max_results, max_fetches=max_fetches),
         user_prompt=build_screening_diligence_user_prompt(theme=theme, market=market, candidate=candidate),
         max_results=max_results,
@@ -1665,19 +1756,117 @@ def build_screening_synthesis_prompt(
     )
 
 
-def build_second_screen_prompt(*, theme: str, market: str, desired_count: int, candidates: list[dict[str, Any]]) -> str:
+def build_screening_council_bull_prompt() -> str:
+    return (
+        "你是二筛委员会里的支持派主席，由 Peter Lynch、Rakesh Jhunjhunwala 和 Stanley Druckenmiller 的风格蒸馏而来。"
+        "你的任务不是盲目乐观，而是为真正值得进入昂贵精筛的标的建立最强支持论证。"
+        "你可以继续联网搜索，补强业务契合度、产业催化剂、交易窗口、可比优势和 why-now 论据。"
+        "输出中文 Markdown，结构固定为：支持派名单、每个候选的 why-now、横向优势、最值得继续研究的原因、需要红队重点质疑的断点。"
+    )
+
+
+def build_screening_council_user_prompt(
+    *,
+    theme: str,
+    market: str,
+    desired_count: int,
+    candidates: list[dict[str, Any]],
+) -> str:
     payload = {
         "theme": theme,
         "market": market,
         "desired_count": desired_count,
         "candidates": candidates,
+        "goal": "先站在支持派角度，筛出最值得进入精筛的候选，并把 why-now 说硬。",
+    }
+    return f"请启动二筛议会第一轮支持派讨论：{json.dumps(payload, ensure_ascii=False)}"
+
+
+def build_screening_council_red_prompt() -> str:
+    return (
+        "你是二筛委员会里的红队主席，由 Michael Burry、Taleb 和 Ackman 的风格蒸馏而来。"
+        "你的任务是系统性拆解支持派的论点，寻找主题错配、证据污染、估值幻觉、客户集中、周期错判和'为什么不是别的股票'这类硬问题。"
+        "你可以继续联网搜索并做交叉核验。"
+        "输出中文 Markdown，结构固定为：核心反对意见、逐个候选的主要漏洞、最危险的假设、应当降级或淘汰的名字、仍可保留但必须附带的保留意见。"
+    )
+
+
+def build_screening_council_red_user_prompt(
+    *,
+    theme: str,
+    market: str,
+    desired_count: int,
+    candidates: list[dict[str, Any]],
+    bull_round: AgentRunResult,
+) -> str:
+    payload = {
+        "theme": theme,
+        "market": market,
+        "desired_count": desired_count,
+        "candidates": candidates,
+        "bull_round": bull_round.content,
+        "goal": "拆解支持派论点，逼出最危险的主题错配、估值幻觉和证据质量问题。",
+    }
+    return f"请启动二筛议会第二轮红队质询：{json.dumps(payload, ensure_ascii=False)}"
+
+
+def build_screening_council_reconsider_prompt() -> str:
+    return (
+        "你是二筛委员会里的复议主席，由 Howard Marks、Charlie Munger 和 Nick Sleep 的风格蒸馏而来。"
+        "你要在支持派与红队之后重新审视候选，不追求热闹，而追求代价昂贵的深研资源应该投到哪里。"
+        "你可以继续联网搜索，但重点是裁决：哪些名字值得继续，哪些只能保留观察，哪些应直接淘汰。"
+        "输出中文 Markdown，结构固定为：复议结论、保留名单、降级名单、仍未解决的断点、进入最终主席团裁决前必须记住的原则。"
+    )
+
+
+def build_screening_council_reconsider_user_prompt(
+    *,
+    theme: str,
+    market: str,
+    desired_count: int,
+    candidates: list[dict[str, Any]],
+    bull_round: AgentRunResult,
+    red_round: AgentRunResult,
+) -> str:
+    payload = {
+        "theme": theme,
+        "market": market,
+        "desired_count": desired_count,
+        "candidates": candidates,
+        "bull_round": bull_round.content,
+        "red_round": red_round.content,
+        "goal": "在支持派和红队之后做复议，判断谁还能进入昂贵的完整精筛。",
+    }
+    return f"请启动二筛议会第三轮复议：{json.dumps(payload, ensure_ascii=False)}"
+
+
+def build_second_screen_prompt(
+    *,
+    theme: str,
+    market: str,
+    desired_count: int,
+    candidates: list[dict[str, Any]],
+    bull_round: str,
+    red_round: str,
+    reconsideration_round: str,
+) -> str:
+    payload = {
+        "theme": theme,
+        "market": market,
+        "desired_count": desired_count,
+        "candidates": candidates,
+        "bull_round": bull_round,
+        "red_round": red_round,
+        "reconsideration_round": reconsideration_round,
     }
     return (
-        "Return JSON only with a top-level `recommended` array. "
-        "Select the few names most worth full deep-research work after both vertical and horizontal investigation. "
+        "Return JSON only with top-level keys `recommended` and `committee_notes`. "
+        "`recommended` must be an array. `committee_notes` must be an object with keys `bull_round`, `red_round`, and `reconsideration_round`. "
+        "Select the few names most worth full deep-research work after multi-stage vertical and horizontal investigation, red-team dissent, and reconsideration. "
         "Each recommended item must contain: company_name, ticker, market, rationale, screen_score, confidence, angle, why_now, why_not_now. "
         "Favor names with cleaner business linkage, stronger evidence quality, better peer-relative upside, and clearer why-now framing. "
         "Penalize vague theme adjacency, poor source quality, and unresolved core contradictions. "
+        "The final chair decision should reflect all three rounds instead of blindly following the initial support case. "
         f"Input: {json.dumps(payload, ensure_ascii=False)}"
     )
 
@@ -2038,6 +2227,7 @@ def run_deliberation_agent(
     client: Client,
     model: str,
     think: str,
+    timeout_seconds: float,
     name: str,
     system_prompt: str,
     user_prompt: str,
@@ -2048,7 +2238,9 @@ def run_deliberation_agent(
     try:
         if verbose:
             print(f"[agent:{name}] deliberating")
-        response = client.chat(
+        response = chat_with_guard(
+            client,
+            timeout_seconds=timeout_seconds,
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -2106,7 +2298,9 @@ def synthesize_buy_side_report(
     distilled_notes: dict[str, dict[str, Any]],
 ) -> str:
     try:
-        response = client.chat(
+        response = chat_with_guard(
+            client,
+            timeout_seconds=config.timeout_seconds,
             model=config.model,
             messages=[
                 {
@@ -2170,6 +2364,112 @@ def resolve_think(model: str, think: str) -> str | None:
     return think or None
 
 
+def load_cross_validated_fallback() -> tuple[Any, Any]:
+    if not CROSS_VALIDATED_SEARCH_ROOT.exists():
+        raise RuntimeError(f"cross-validated-search repo not found at {CROSS_VALIDATED_SEARCH_ROOT}")
+    root = str(CROSS_VALIDATED_SEARCH_ROOT)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from cross_validated_search.browse_page import browse  # type: ignore
+    from cross_validated_search.core import UltimateSearcher  # type: ignore
+
+    return UltimateSearcher, browse
+
+
+def market_region(market: str) -> str:
+    normalized = (market or "").upper()
+    if normalized == "US":
+        return "en-us"
+    if normalized in {"CN", "HK"}:
+        return "zh-cn"
+    return "wt-wt"
+
+
+def fallback_search_with_cross_validated(*, query: str, max_results: int, market: str) -> dict[str, Any]:
+    UltimateSearcher, _ = load_cross_validated_fallback()
+    answer = UltimateSearcher().search(
+        query,
+        region=market_region(market),
+        providers=["ddgs"],
+    )
+    results: list[dict[str, str]] = []
+    for source in list(getattr(answer, "sources", []) or [])[:max_results]:
+        results.append(
+            {
+                "title": str(getattr(source, "title", "") or "Untitled source").strip(),
+                "url": str(getattr(source, "url", "") or "").strip(),
+                "content": str(
+                    getattr(source, "snippet", "")
+                    or getattr(source, "summary", "")
+                    or getattr(source, "extra", "")
+                    or ""
+                ).strip(),
+            }
+        )
+    return {"results": results, "fallback": "cross-validated-search"}
+
+
+def fallback_fetch_with_cross_validated(*, url: str) -> dict[str, Any]:
+    _, browse = load_cross_validated_fallback()
+    result = browse(url, max_chars=12000)
+    if result.get("status") == "success":
+        content = str(result.get("content") or "").strip()
+        return {
+            "url": url,
+            "title": str(result.get("title") or url).strip(),
+            "content": content,
+            "excerpt": clip_text(content, 420),
+            "fallback": "cross-validated-search",
+        }
+    return {"url": url, "error": str(result.get("error") or "cross-validated fetch failed"), "fallback": "cross-validated-search"}
+
+
+def perform_search_with_fallback(*, client: Client, query: str, max_results: int, market: str) -> dict[str, Any]:
+    try:
+        result = client.web_search(query=query, max_results=max_results).model_dump()
+        if isinstance(result, dict) and result.get("error"):
+            fallback = fallback_search_with_cross_validated(query=query, max_results=max_results, market=market)
+            fallback["primary_error"] = str(result.get("error"))
+            return fallback
+        return result
+    except Exception as exc:
+        fallback = fallback_search_with_cross_validated(query=query, max_results=max_results, market=market)
+        fallback["primary_error"] = str(exc)
+        return fallback
+
+
+def perform_fetch_with_fallback(*, client: Client, url: str) -> dict[str, Any]:
+    try:
+        result = client.web_fetch(url=url).model_dump()
+        if isinstance(result, dict) and result.get("error"):
+            fallback = fallback_fetch_with_cross_validated(url=url)
+            fallback["primary_error"] = str(result.get("error"))
+            return fallback
+        return result
+    except Exception as exc:
+        fallback = fallback_fetch_with_cross_validated(url=url)
+        fallback["primary_error"] = str(exc)
+        return fallback
+
+
+def chat_with_guard(
+    client: Client,
+    *,
+    timeout_seconds: float,
+    **kwargs: Any,
+) -> Any:
+    return client.chat(**kwargs)
+
+
+def call_with_guard(
+    func: Any,
+    *,
+    timeout_seconds: float,
+    **kwargs: Any,
+) -> Any:
+    return func(**kwargs)
+
+
 def safe_run_agent_with_tools(**kwargs: Any) -> AgentRunResult:
     try:
         return run_agent_with_tools(**kwargs)
@@ -2187,6 +2487,7 @@ def run_agent_with_tools(
     name: str,
     model: str,
     think: str,
+    timeout_seconds: float,
     system_prompt: str,
     user_prompt: str,
     max_results: int,
@@ -2203,7 +2504,9 @@ def run_agent_with_tools(
     started = time.perf_counter()
     if verbose:
         print(f"[agent:{name}] planning search")
-    planning_response = client.chat(
+    planning_response = chat_with_guard(
+        client,
+        timeout_seconds=timeout_seconds,
         model=model,
         messages=messages,
         tools=[client.web_search, client.web_fetch],
@@ -2224,12 +2527,12 @@ def run_agent_with_tools(
         arguments = dict(function.arguments or {})
         if tool_name == "web_search":
             arguments["max_results"] = min(int(arguments.get("max_results", max_results)), max_results)
-            result = client.web_search(**arguments).model_dump()
+            result = call_with_guard(client.web_search, timeout_seconds=timeout_seconds, **arguments).model_dump()
         elif tool_name == "web_fetch":
             if fetch_count >= max_fetches:
                 result = {"error": "fetch budget exhausted"}
             else:
-                result = client.web_fetch(**arguments).model_dump()
+                result = call_with_guard(client.web_fetch, timeout_seconds=timeout_seconds, **arguments).model_dump()
                 fetch_count += 1
         else:
             result = {"error": f"unsupported tool: {tool_name}"}
@@ -2254,7 +2557,9 @@ def run_agent_with_tools(
     try:
         if verbose:
             print(f"[agent:{name}] synthesizing note")
-        synthesis_response = client.chat(
+        synthesis_response = chat_with_guard(
+            client,
+            timeout_seconds=timeout_seconds,
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -3750,12 +4055,23 @@ def build_screening_fallback_candidates(evidence: list[dict[str, str]], *, theme
     seen: set[str] = set()
     for item in evidence:
         title = f"{item.get('title', '')} {item.get('claim', '')}".strip()
+        company_name = ""
+        ticker = ""
         match = re.search(r"([A-Za-z\u4e00-\u9fff]+)[(（]?\s*(\d{6})(?:\.?(?:SH|SZ))?[)）]?", title)
-        if not match:
+        if match:
+            company_name = match.group(1).strip("-_ ")
+            raw_code = match.group(2)
+            ticker = normalize_ticker(raw_code, "SSE" if raw_code.startswith("6") else "SZSE", market)
+        elif market.upper() == "US":
+            us_match = re.search(r"\b(?:NASDAQ|NYSE|AMEX)[:\s-]*([A-Z]{1,5})\b", title.upper())
+            if not us_match:
+                continue
+            ticker = us_match.group(1)
+            company_name = re.split(r"[|:\-–—(]", str(item.get("title") or "").strip())[0].strip()
+            if not company_name:
+                company_name = ticker
+        else:
             continue
-        company_name = match.group(1).strip("-_ ")
-        raw_code = match.group(2)
-        ticker = normalize_ticker(raw_code, "SSE" if raw_code.startswith("6") else "SZSE", market)
         identifier = slugify(ticker or company_name)
         if identifier in seen:
             continue

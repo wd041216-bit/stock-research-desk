@@ -18,8 +18,21 @@ This performs:
 
 1. initial screen from public-web evidence
 2. candidate-level mini-dossiers with vertical and horizontal web diligence
-3. second-screen committee selection
+3. a multi-stage second-screen guru council
 4. full deep-research memos for the finalists
+
+Search orchestration policy:
+
+- the model plans search, follow-up search, and critical verification queries
+- `web_search` / `web_fetch` are always tried first
+- if a tool explicitly errors, the desk falls back to `cross-validated-search` for that step only
+- long waits are treated as patience, not as a reason to interrupt the research flow
+
+The second-screen council is no longer a single pass. It now includes:
+
+1. a support round that argues the strongest why-now cases
+2. a red-team round that attacks theme fit, evidence quality, and valuation shortcuts
+3. a reconsideration round that decides which names still deserve expensive deep research
 
 Artifacts:
 

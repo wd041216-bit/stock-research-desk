@@ -14,12 +14,18 @@ from stock_research_desk.stock_cli import (
     default_workspace_home,
     load_watchlist,
     parse_email_command,
+    perform_fetch_with_fallback,
+    perform_search_with_fallback,
     render_email_research_reply,
     render_email_screen_reply,
     render_screening_markdown,
     normalize_screen_candidates,
     parse_interval_hours,
     build_sentiment_simulator_prompt,
+    build_screening_council_bull_prompt,
+    build_screening_council_red_prompt,
+    build_screening_council_reconsider_prompt,
+    build_second_screen_prompt,
     build_comparison_fallback_from_evidence,
     build_sentiment_fallback_from_evidence,
     clean_research_summary,
@@ -263,6 +269,22 @@ def test_build_comparison_fallback_from_evidence_mentions_peers_and_gaps() -> No
     assert "短板" in text or "风险" in text
 
 
+def test_build_screening_fallback_candidates_extracts_us_exchange_tickers() -> None:
+    candidates = build_screening_fallback_candidates(
+        [
+            {
+                "title": "NeuroPace (Nasdaq: NPCE)",
+                "claim": "NeuroPace is a commercial-stage neurotech company.",
+                "quality": "84",
+            }
+        ],
+        theme="脑机接口",
+        market="US",
+    )
+    assert candidates[0]["ticker"] == "NPCE"
+    assert "NeuroPace" in candidates[0]["company_name"]
+
+
 def test_should_replace_sentiment_summary_when_missing_role_views() -> None:
     assert should_replace_sentiment_summary("赛腾股份2024年报点评：半导体量测设备加速国产替代") is True
     assert should_replace_sentiment_summary("成长资金更愿意交易国产替代，卖方怀疑派则盯住客户集中度。") is False
@@ -428,6 +450,81 @@ def test_role_prompts_reference_tools_and_dense_outputs() -> None:
     assert "Warren Buffett" in company_prompt
     assert "成长基金视角" in sentiment_prompt
     assert "Cathie Wood" in sentiment_prompt
+
+
+def test_screening_council_prompts_are_multi_stage() -> None:
+    bull_prompt = build_screening_council_bull_prompt()
+    red_prompt = build_screening_council_red_prompt()
+    reconsider_prompt = build_screening_council_reconsider_prompt()
+
+    assert "支持派" in bull_prompt
+    assert "红队" in red_prompt
+    assert "复议" in reconsider_prompt
+
+
+def test_search_fallback_only_runs_on_primary_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeSearchResponse:
+        def model_dump(self) -> dict[str, object]:
+            return {"results": [{"title": "Primary", "url": "https://example.com", "content": "ok"}]}
+
+    class FakeClient:
+        def web_search(self, **kwargs: object) -> FakeSearchResponse:
+            return FakeSearchResponse()
+
+    def fake_fallback(**kwargs: object) -> dict[str, object]:
+        return {"results": [{"title": "Fallback", "url": "https://fallback.example", "content": "fallback"}]}
+
+    monkeypatch.setattr("stock_research_desk.stock_cli.fallback_search_with_cross_validated", fake_fallback)
+    result = perform_search_with_fallback(client=FakeClient(), query="脑机接口 美股", max_results=5, market="US")
+    assert result["results"][0]["title"] == "Primary"
+
+
+def test_search_fallback_activates_on_primary_exception(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeClient:
+        def web_search(self, **kwargs: object) -> object:
+            raise RuntimeError("primary failed")
+
+    def fake_fallback(**kwargs: object) -> dict[str, object]:
+        return {"results": [{"title": "Fallback", "url": "https://fallback.example", "content": "fallback"}]}
+
+    monkeypatch.setattr("stock_research_desk.stock_cli.fallback_search_with_cross_validated", fake_fallback)
+    result = perform_search_with_fallback(client=FakeClient(), query="脑机接口 美股", max_results=5, market="US")
+    assert result["results"][0]["title"] == "Fallback"
+    assert "primary_error" in result
+
+
+def test_fetch_fallback_activates_on_primary_error_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeFetchResponse:
+        def model_dump(self) -> dict[str, object]:
+            return {"url": "https://example.com", "error": "tool failed"}
+
+    class FakeClient:
+        def web_fetch(self, **kwargs: object) -> FakeFetchResponse:
+            return FakeFetchResponse()
+
+    def fake_fallback(**kwargs: object) -> dict[str, object]:
+        return {"url": "https://example.com", "title": "Fallback Page", "content": "fallback", "excerpt": "fallback"}
+
+    monkeypatch.setattr("stock_research_desk.stock_cli.fallback_fetch_with_cross_validated", fake_fallback)
+    result = perform_fetch_with_fallback(client=FakeClient(), url="https://example.com")
+    assert result["title"] == "Fallback Page"
+    assert result["primary_error"] == "tool failed"
+
+
+def test_second_screen_prompt_requires_committee_notes_and_rounds() -> None:
+    prompt = build_second_screen_prompt(
+        theme="脑机接口",
+        market="US",
+        desired_count=3,
+        candidates=[{"company_name": "Neuralink Proxy", "ticker": "ABCD", "market": "US"}],
+        bull_round="支持派认为产业催化剂存在。",
+        red_round="红队质疑商业化时点。",
+        reconsideration_round="复议后只保留少数高质量名字。",
+    )
+    assert "committee_notes" in prompt
+    assert "bull_round" in prompt
+    assert "red_round" in prompt
+    assert "reconsideration_round" in prompt
 
 
 def test_agent_output_outline_covers_company_and_sentiment_roles() -> None:

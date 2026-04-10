@@ -73,6 +73,7 @@ This repo is designed to be stricter:
 - multi-agent research instead of one-shot summarization
 - red team + guru council + future-scenario layer
 - target prices always tied to explicit time horizons
+- Ollama `web_search` / `web_fetch` used first, with `cross-validated-search` only as an error fallback
 
 It is intentionally narrow:
 
@@ -121,7 +122,7 @@ That will:
 
 - do an initial web-based candidate scout
 - turn the shortlisted names into mini-dossiers with vertical + horizontal web diligence
-- run a second-screen committee on those dossiers
+- run a multi-stage second-screen guru council on those dossiers
 - run full deep research on the finalists
 - save a screening summary to `~/Desktop/Stock Research Desk/screenings/`
 
@@ -182,8 +183,15 @@ For theme screening, the product now uses three layers:
 
 1. initial screen
    Collects candidate names from public-web evidence.
+   The model is allowed to plan its own search and follow-up queries.
+   Native `web_search` / `web_fetch` are always tried first.
+   If a search or fetch tool explicitly errors, the desk falls back to [`cross-validated-search`](https://github.com/wd041216-bit/cross-validated-search) for that step only.
 2. second screen
-   A stricter committee reviews mini-dossiers, not just a flat candidate list.
+   A stricter multi-stage guru council reviews mini-dossiers, not just a flat candidate list.
+   It now runs:
+   - a support round to build the strongest why-now cases
+   - a red-team round to attack theme fit, valuation, and evidence quality
+   - a reconsideration round to decide which names still deserve expensive deep research
 3. finalist deep research
    The existing multi-agent memo process runs on each finalist.
 

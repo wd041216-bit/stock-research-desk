@@ -17,7 +17,7 @@ The goal is to show what the desk is good at, where it stays conservative, and w
 - Ticker: `603283.SH`
 - Market: `CN`
 - Angle: `China narrative`
-- Output style: Chinese and English DOCX plus JSON
+- Output style: one desktop DOCX with Chinese and English in separate sections, plus an internal JSON payload
 
 ## Why This Name Was Interesting
 

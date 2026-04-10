@@ -23,7 +23,7 @@ Open the fastest public examples:
 The repo now supports two host modes:
 
 - terminal-first cloud execution through Ollama Cloud
-- Codex-native execution where Codex becomes the main brain, uses its own web research first, and can write separate Chinese and English DOCX outputs to the desktop workspace
+- Codex-native execution where Codex becomes the main brain, uses its own web research first, and writes one desktop DOCX with separate Chinese and English sections
 
 In practice, that means you can use it in four ways:
 
@@ -36,10 +36,10 @@ In practice, that means you can use it in four ways:
 
 | Need | Best mode | Output |
 | --- | --- | --- |
-| One stock, full debate-oriented memo | terminal CLI | zh/en DOCX + JSON |
+| One stock, full debate-oriented memo | terminal CLI | single desktop DOCX + internal JSON |
 | Theme triage before expensive deep work | terminal CLI | screening DOCX + finalist memos |
 | Hands-off recurring refreshes | watchlist + mailbox | digest DOCX + refreshed memos |
-| Codex as planner and main brain | Codex skill | same document bundle, different host path |
+| Codex as planner and main brain | Codex skill | same single-document delivery, different host path |
 
 ## What It Is
 
@@ -111,7 +111,7 @@ It is intentionally narrow:
 - a staged single-name memo instead of a one-shot summary
 - sector screening with initial scout, second-screen council, and finalist deep dives
 - recurring watchlist refreshes with digest generation
-- separate Chinese and English DOCX deliverables for humans
+- one desktop DOCX deliverable with separate Chinese and English sections
 - JSON artifacts for follow-up automation
 
 ## Why People Save Repos Like This
@@ -119,7 +119,7 @@ It is intentionally narrow:
 - it is narrow enough to be believable
 - it exposes disagreement instead of hiding it
 - it treats screening and deep research as different budgets
-- it delivers separate Chinese and English documents instead of only raw traces
+- it delivers one clean desktop document instead of scattering final output across multiple files
 - it keeps a terminal-first path and an additive Codex path in the same repo
 
 ## 60-Second Start
@@ -145,17 +145,16 @@ Run a first memo:
 ./bin/research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事"
 ```
 
-The default CLI command writes:
+The default desktop delivery writes:
 
-- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-zh.docx`
-- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-en.docx`
-- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.json`
+- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.docx`
 - `~/Desktop/Stock Research Desk/memory_palace/<ticker>.json`
+
+The desktop document contains a Chinese section first and an English section on a separate page. Internal machine payloads are still saved under `~/Desktop/Stock Research Desk/.internal/`.
 
 The separate Codex skill mode uses the same document-first delivery shape:
 
-- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-zh.docx`
-- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-en.docx`
+- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.docx`
 
 Run a theme screen:
 
@@ -194,7 +193,7 @@ Supported email subjects:
 - `watchlist list`
 - `watchlist run-due`
 
-Email replies now come back in desk-style formats and attach the document bundle:
+Email replies now come back in desk-style formats and attach the final document set:
 
 - `Single-Name Desk Note`
 - `Screening Brief`
@@ -278,7 +277,7 @@ In Codex-native mode:
 - Codex web research is tried first
 - `cross-validated-search` is only a fallback when a search/fetch step explicitly errors
 - recurring watchlists should be scheduled through Codex automations, not the repo's older internal scheduler
-- final deliverables should be kept as separate Chinese and English DOCX reports
+- final deliverables should be kept as one desktop DOCX with separate Chinese and English sections
 
 This is an additional mode, not a replacement for the default CLI and mailbox workflows. The host mode changes, but final human-readable deliverables stay document-first in both paths.
 

@@ -1,13 +1,20 @@
-import pytest
 from datetime import datetime
 from pathlib import Path
 
-from stock_research_desk.documents import build_english_report_fallback, write_report_docx
+import pytest
+
+from stock_research_desk.documents import (
+    build_english_report_fallback,
+    write_bilingual_report_docx,
+    write_report_docx,
+)
 from stock_research_desk.stock_cli import (
     add_watchlist_entry,
     agent_output_outline,
     build_screening_fallback_candidates,
+    build_report_document_paths,
     build_seed_candidates,
+    build_watchlist_digest_document_paths,
     combine_candidate_lists,
     build_agent_user_prompt,
     build_buy_side_synthesis_prompt,
@@ -76,6 +83,7 @@ from stock_research_desk.stock_cli import (
     render_watchlist_digest_markdown,
     render_email_watchlist_digest_reply,
     render_email_watchlist_roster_reply,
+    unique_attachment_paths,
 )
 
 
@@ -116,6 +124,40 @@ def test_write_report_docx_creates_a_docx_file(tmp_path: Path) -> None:
         },
     }
     write_report_docx(output, payload=payload, language="zh")
+    assert output.exists()
+    assert output.stat().st_size > 0
+
+
+def test_write_bilingual_report_docx_creates_single_docx_file(tmp_path: Path) -> None:
+    output = tmp_path / "report.docx"
+    zh_payload = {
+        "company_name": "赛腾股份",
+        "ticker": "603283.SH",
+        "exchange": "SSE",
+        "market": "CN",
+        "model": "kimi-k2.5:cloud",
+        "quick_take": "中文判断。",
+        "verdict": "watchlist",
+        "confidence": "high",
+        "market_map": "中文市场图谱。",
+        "business_summary": "中文业务概览。",
+        "china_story": "中文角度。",
+        "sentiment_simulation": "中文情绪。",
+        "peer_comparison": "中文对比。",
+        "committee_takeaways": "中文议会。",
+        "scenario_outlook": "中文场景。",
+        "debate_notes": "中文红队。",
+        "valuation_view": "中文估值。",
+        "bull_case": ["中文多头。"],
+        "bear_case": ["中文空头。"],
+        "catalysts": ["中文催化。"],
+        "risks": ["中文风险。"],
+        "next_questions": ["中文问题。"],
+        "evidence": [{"title": "公告", "url": "https://example.com", "claim": "中文证据", "stance": "support"}],
+        "target_prices": {"short_term": {"price": "45.00", "horizon": "1-3个月", "thesis": "中文依据"}},
+    }
+    en_payload = build_english_report_fallback(zh_payload)
+    write_bilingual_report_docx(output, zh_payload=zh_payload, en_payload=en_payload)
     assert output.exists()
     assert output.stat().st_size > 0
 
@@ -907,6 +949,17 @@ def test_watchlist_add_and_remove_round_trip(monkeypatch: pytest.MonkeyPatch, tm
     assert load_watchlist(paths) == []
 
 
+def test_resolve_workspace_paths_enables_single_document_delivery_on_desktop(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("STOCK_RESEARCH_DESK_HOME", str(tmp_path / "desk-home"))
+    paths = resolve_workspace_paths("reports")
+    assert paths.single_document_delivery is True
+    assert paths.artifacts_dir.exists()
+    report_paths = build_report_document_paths(reports_dir=paths.reports_dir, timestamp="20260410-000000", slug="603283-sh", single_document=paths.single_document_delivery)
+    digest_paths = build_watchlist_digest_document_paths(digests_dir=paths.digests_dir, timestamp="20260410-000000", single_document=paths.single_document_delivery)
+    assert report_paths["primary"] == report_paths["zh"] == report_paths["en"]
+    assert digest_paths["primary"] == digest_paths["zh"] == digest_paths["en"]
+
+
 def test_run_due_watchlist_updates_next_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("STOCK_RESEARCH_DESK_HOME", str(tmp_path / "desk-home"))
     paths = resolve_workspace_paths("reports")
@@ -1090,6 +1143,11 @@ def test_render_email_watchlist_roster_reply_lists_priority_queue() -> None:
     assert "Coverage Roster" in body
     assert "Priority queue" in body
     assert "603283.SH" in body
+
+
+def test_unique_attachment_paths_deduplicates_single_document_delivery() -> None:
+    attachments = unique_attachment_paths("/tmp/report.docx", "/tmp/report.docx", "", None, "/tmp/other.docx")
+    assert attachments == ["/tmp/report.docx", "/tmp/other.docx"]
 
 
 def test_render_watchlist_digest_markdown_includes_target_snapshot() -> None:

@@ -5,7 +5,6 @@ import re
 from typing import Any
 
 from docx import Document
-from docx.enum.section import WD_SECTION_START
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt
 
@@ -152,95 +151,70 @@ def build_english_screening_fallback(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def write_report_docx(path: Path, *, payload: dict[str, Any], language: str) -> None:
-    labels = _report_labels(language)
     doc = _new_document()
-    title = f"{payload.get('company_name') or payload.get('ticker')} {labels['memo_title']}"
-    _add_title(doc, title, subtitle=f"{labels['ticker']}: {payload.get('ticker', '')} | {labels['market']}: {payload.get('market', '')}")
-    _add_metadata_table(
-        doc,
-        [
-            (labels["verdict"], str(payload.get("verdict") or "")),
-            (labels["confidence"], str(payload.get("confidence") or "")),
-            (labels["exchange"], str(payload.get("exchange") or "")),
-            (labels["model"], str(payload.get("model") or "")),
-        ],
-    )
-    _add_heading_and_paragraph(doc, labels["quick_take"], str(payload.get("quick_take") or ""))
-    _add_heading_and_paragraph(doc, labels["business_summary"], str(payload.get("business_summary") or ""))
-    _add_heading_and_paragraph(doc, labels["market_map"], str(payload.get("market_map") or ""))
-    _add_heading_and_paragraph(doc, labels["china_story"], str(payload.get("china_story") or ""))
-    _add_heading_and_paragraph(doc, labels["sentiment_simulation"], str(payload.get("sentiment_simulation") or ""))
-    _add_heading_and_paragraph(doc, labels["peer_comparison"], str(payload.get("peer_comparison") or ""))
-    _add_heading_and_paragraph(doc, labels["committee_takeaways"], str(payload.get("committee_takeaways") or ""))
-    _add_heading_and_paragraph(doc, labels["scenario_outlook"], str(payload.get("scenario_outlook") or ""))
-    _add_bullet_section(doc, labels["bull_case"], list(payload.get("bull_case") or []), labels["no_items"])
-    _add_bullet_section(doc, labels["bear_case"], list(payload.get("bear_case") or []), labels["no_items"])
-    _add_bullet_section(doc, labels["catalysts"], list(payload.get("catalysts") or []), labels["no_items"])
-    _add_bullet_section(doc, labels["risks"], list(payload.get("risks") or []), labels["no_items"])
-    _add_heading_and_paragraph(doc, labels["valuation_view"], str(payload.get("valuation_view") or ""))
-    _add_target_price_section(doc, labels, payload.get("target_prices") or {})
-    _add_heading_and_paragraph(doc, labels["debate_notes"], str(payload.get("debate_notes") or ""))
-    _add_evidence_section(doc, labels, list(payload.get("evidence") or []))
-    _add_bullet_section(doc, labels["next_questions"], list(payload.get("next_questions") or []), labels["no_items"])
+    _append_report_section(doc, payload=payload, language=language)
     path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(path)
 
 
 def write_screening_docx(path: Path, *, payload: dict[str, Any], language: str) -> None:
-    labels = _screening_labels(language)
     doc = _new_document()
-    _add_title(doc, f"{payload.get('theme', '')} {labels['title']}", subtitle=f"{labels['market']}: {payload.get('market', '')}")
-    finalists = list(payload.get("finalists") or [])
-    stage_one = list(payload.get("stage_one_candidates") or [])
-    _add_metadata_table(
-        doc,
-        [
-            (labels["second_screen_pool"], str(len(stage_one))),
-            (labels["final_recommendations"], str(len(finalists))),
-        ],
-    )
-    doc.add_heading(labels["final_recommendations"], level=1)
-    if not finalists:
-        doc.add_paragraph(labels["no_items"])
-    for item in finalists:
-        doc.add_heading(f"{item.get('company_name') or item.get('ticker', '')} {item.get('ticker', '')}".strip(), level=2)
-        for line in [
-            f"{labels['recommendation_rank']}: {item.get('recommendation_rank') or 'A'}",
-            f"{labels['screen_score']}: {item.get('screen_score') or 'n/a'}",
-            f"{labels['research_verdict']}: {item.get('research_verdict') or 'watchlist'}",
-            f"{labels['confidence']}: {item.get('confidence') or 'medium'}",
-            f"{labels['why_now']}: {item.get('why_now') or labels['translation_unavailable']}",
-            f"{labels['why_not_now']}: {item.get('why_not_now') or labels['translation_unavailable']}",
-            f"{labels['quick_take']}: {item.get('quick_take') or labels['translation_unavailable']}",
-            f"{labels['vertical_summary']}: {item.get('vertical_summary') or labels['translation_unavailable']}",
-            f"{labels['horizontal_summary']}: {item.get('horizontal_summary') or labels['translation_unavailable']}",
-            f"{labels['short_term_target']}: {item.get('short_term_target') or 'n/a'}",
-            f"{labels['bull_bear_focus']}: {item.get('bull_bear_focus') or labels['translation_unavailable']}",
-            f"{labels['document_path']}: {item.get('document_path') or 'n/a'}",
-        ]:
-            doc.add_paragraph(line, style="List Bullet")
-    doc.add_heading(labels["downgraded_names"], level=1)
-    rejected = list(payload.get("rejected") or [])
-    if not rejected:
-        doc.add_paragraph(labels["no_items"])
-    for item in rejected:
-        doc.add_paragraph(f"{item.get('label') or 'candidate'}: {item.get('reason') or labels['translation_unavailable']}", style="List Bullet")
+    _append_screening_section(doc, payload=payload, language=language)
     path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(path)
 
 
 def write_watchlist_digest_docx(path: Path, *, artifacts: list[dict[str, str]], language: str) -> None:
-    labels = _digest_labels(language)
     doc = _new_document()
-    _add_title(doc, labels["title"], subtitle=f"{labels['refreshed_names']}: {len(artifacts)}")
-    if not artifacts:
-        doc.add_paragraph(labels["no_items"])
-    for item in artifacts:
-        doc.add_heading(str(item.get("identifier") or "Name"), level=2)
-        doc.add_paragraph(f"{labels['verdict']}: {item.get('verdict') or 'watchlist'}", style="List Bullet")
-        doc.add_paragraph(f"{labels['target_snapshot']}: {item.get('target_snapshot') or 'n/a'}", style="List Bullet")
-        path_key = "primary_document_path" if item.get("primary_document_path") else "zh_docx_path"
-        doc.add_paragraph(f"{labels['document_path']}: {item.get(path_key) or 'n/a'}", style="List Bullet")
+    _append_watchlist_digest_section(doc, artifacts=artifacts, language=language)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(path)
+
+
+def write_bilingual_report_docx(path: Path, *, zh_payload: dict[str, Any], en_payload: dict[str, Any]) -> None:
+    doc = _new_document()
+    _add_title(
+        doc,
+        f"{zh_payload.get('company_name') or zh_payload.get('ticker') or 'Stock'} Research Desk Delivery",
+        subtitle="Chinese section first. English section follows on a separate page.",
+    )
+    doc.add_heading("中文交付", level=1)
+    _append_report_section(doc, payload=zh_payload, language="zh", include_title=False)
+    doc.add_page_break()
+    doc.add_heading("English Delivery", level=1)
+    _append_report_section(doc, payload=en_payload, language="en", include_title=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(path)
+
+
+def write_bilingual_screening_docx(path: Path, *, zh_payload: dict[str, Any], en_payload: dict[str, Any]) -> None:
+    doc = _new_document()
+    _add_title(
+        doc,
+        f"{zh_payload.get('theme', '')} Screening Delivery",
+        subtitle="Chinese section first. English section follows on a separate page.",
+    )
+    doc.add_heading("中文交付", level=1)
+    _append_screening_section(doc, payload=zh_payload, language="zh", include_title=False)
+    doc.add_page_break()
+    doc.add_heading("English Delivery", level=1)
+    _append_screening_section(doc, payload=en_payload, language="en", include_title=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(path)
+
+
+def write_bilingual_watchlist_digest_docx(path: Path, *, artifacts: list[dict[str, str]]) -> None:
+    doc = _new_document()
+    _add_title(
+        doc,
+        "Watchlist Delivery",
+        subtitle="Chinese section first. English section follows on a separate page.",
+    )
+    doc.add_heading("中文交付", level=1)
+    _append_watchlist_digest_section(doc, artifacts=artifacts, language="zh", include_title=False)
+    doc.add_page_break()
+    doc.add_heading("English Delivery", level=1)
+    _append_watchlist_digest_section(doc, artifacts=artifacts, language="en", include_title=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(path)
 
@@ -381,6 +355,94 @@ def _add_evidence_section(doc: Document, labels: dict[str, str], evidence: list[
         row[0].text = f"{item.get('title') or 'Source'}\n{item.get('url') or ''}"
         row[1].text = str(item.get("claim") or "")
         row[2].text = str(item.get("stance") or "")
+
+
+def _append_report_section(doc: Document, *, payload: dict[str, Any], language: str, include_title: bool = True) -> None:
+    labels = _report_labels(language)
+    if include_title:
+        title = f"{payload.get('company_name') or payload.get('ticker')} {labels['memo_title']}"
+        _add_title(doc, title, subtitle=f"{labels['ticker']}: {payload.get('ticker', '')} | {labels['market']}: {payload.get('market', '')}")
+    _add_metadata_table(
+        doc,
+        [
+            (labels["verdict"], str(payload.get("verdict") or "")),
+            (labels["confidence"], str(payload.get("confidence") or "")),
+            (labels["exchange"], str(payload.get("exchange") or "")),
+            (labels["model"], str(payload.get("model") or "")),
+        ],
+    )
+    _add_heading_and_paragraph(doc, labels["quick_take"], str(payload.get("quick_take") or ""))
+    _add_heading_and_paragraph(doc, labels["business_summary"], str(payload.get("business_summary") or ""))
+    _add_heading_and_paragraph(doc, labels["market_map"], str(payload.get("market_map") or ""))
+    _add_heading_and_paragraph(doc, labels["china_story"], str(payload.get("china_story") or ""))
+    _add_heading_and_paragraph(doc, labels["sentiment_simulation"], str(payload.get("sentiment_simulation") or ""))
+    _add_heading_and_paragraph(doc, labels["peer_comparison"], str(payload.get("peer_comparison") or ""))
+    _add_heading_and_paragraph(doc, labels["committee_takeaways"], str(payload.get("committee_takeaways") or ""))
+    _add_heading_and_paragraph(doc, labels["scenario_outlook"], str(payload.get("scenario_outlook") or ""))
+    _add_bullet_section(doc, labels["bull_case"], list(payload.get("bull_case") or []), labels["no_items"])
+    _add_bullet_section(doc, labels["bear_case"], list(payload.get("bear_case") or []), labels["no_items"])
+    _add_bullet_section(doc, labels["catalysts"], list(payload.get("catalysts") or []), labels["no_items"])
+    _add_bullet_section(doc, labels["risks"], list(payload.get("risks") or []), labels["no_items"])
+    _add_heading_and_paragraph(doc, labels["valuation_view"], str(payload.get("valuation_view") or ""))
+    _add_target_price_section(doc, labels, payload.get("target_prices") or {})
+    _add_heading_and_paragraph(doc, labels["debate_notes"], str(payload.get("debate_notes") or ""))
+    _add_evidence_section(doc, labels, list(payload.get("evidence") or []))
+    _add_bullet_section(doc, labels["next_questions"], list(payload.get("next_questions") or []), labels["no_items"])
+
+
+def _append_screening_section(doc: Document, *, payload: dict[str, Any], language: str, include_title: bool = True) -> None:
+    labels = _screening_labels(language)
+    if include_title:
+        _add_title(doc, f"{payload.get('theme', '')} {labels['title']}", subtitle=f"{labels['market']}: {payload.get('market', '')}")
+    finalists = list(payload.get("finalists") or [])
+    stage_one = list(payload.get("stage_one_candidates") or [])
+    _add_metadata_table(
+        doc,
+        [
+            (labels["second_screen_pool"], str(len(stage_one))),
+            (labels["final_recommendations"], str(len(finalists))),
+        ],
+    )
+    doc.add_heading(labels["final_recommendations"], level=1)
+    if not finalists:
+        doc.add_paragraph(labels["no_items"])
+    for item in finalists:
+        doc.add_heading(f"{item.get('company_name') or item.get('ticker', '')} {item.get('ticker', '')}".strip(), level=2)
+        for line in [
+            f"{labels['recommendation_rank']}: {item.get('recommendation_rank') or 'A'}",
+            f"{labels['screen_score']}: {item.get('screen_score') or 'n/a'}",
+            f"{labels['research_verdict']}: {item.get('research_verdict') or 'watchlist'}",
+            f"{labels['confidence']}: {item.get('confidence') or 'medium'}",
+            f"{labels['why_now']}: {item.get('why_now') or labels['translation_unavailable']}",
+            f"{labels['why_not_now']}: {item.get('why_not_now') or labels['translation_unavailable']}",
+            f"{labels['quick_take']}: {item.get('quick_take') or labels['translation_unavailable']}",
+            f"{labels['vertical_summary']}: {item.get('vertical_summary') or labels['translation_unavailable']}",
+            f"{labels['horizontal_summary']}: {item.get('horizontal_summary') or labels['translation_unavailable']}",
+            f"{labels['short_term_target']}: {item.get('short_term_target') or 'n/a'}",
+            f"{labels['bull_bear_focus']}: {item.get('bull_bear_focus') or labels['translation_unavailable']}",
+            f"{labels['document_path']}: {item.get('document_path') or 'n/a'}",
+        ]:
+            doc.add_paragraph(line, style="List Bullet")
+    doc.add_heading(labels["downgraded_names"], level=1)
+    rejected = list(payload.get("rejected") or [])
+    if not rejected:
+        doc.add_paragraph(labels["no_items"])
+    for item in rejected:
+        doc.add_paragraph(f"{item.get('label') or 'candidate'}: {item.get('reason') or labels['translation_unavailable']}", style="List Bullet")
+
+
+def _append_watchlist_digest_section(doc: Document, *, artifacts: list[dict[str, str]], language: str, include_title: bool = True) -> None:
+    labels = _digest_labels(language)
+    if include_title:
+        _add_title(doc, labels["title"], subtitle=f"{labels['refreshed_names']}: {len(artifacts)}")
+    if not artifacts:
+        doc.add_paragraph(labels["no_items"])
+    for item in artifacts:
+        doc.add_heading(str(item.get("identifier") or "Name"), level=2)
+        doc.add_paragraph(f"{labels['verdict']}: {item.get('verdict') or 'watchlist'}", style="List Bullet")
+        doc.add_paragraph(f"{labels['target_snapshot']}: {item.get('target_snapshot') or 'n/a'}", style="List Bullet")
+        path_key = "primary_document_path" if item.get("primary_document_path") else "zh_docx_path"
+        doc.add_paragraph(f"{labels['document_path']}: {item.get(path_key) or 'n/a'}", style="List Bullet")
 
 
 def _report_labels(language: str) -> dict[str, str]:

@@ -11,7 +11,7 @@ This changes the preferred host model.
 1. Codex is the main brain.
 2. Codex uses its own web search / page reading first.
 3. `cross-validated-search` is only used if a search or fetch step explicitly errors.
-4. Final deliverables should be separate Chinese and English DOCX files on the desktop.
+4. Final deliverables should be one desktop DOCX file with a Chinese section first and an English section on a separate page.
 5. Recurring watchlists should be implemented with Codex automations.
 
 ## Why Keep The CLI
@@ -25,7 +25,7 @@ The standalone CLI still matters because it gives the repo:
 
 Both modes now share the same delivery convention:
 
-- separate Chinese and English DOCX reports for people
+- a single desktop DOCX that keeps Chinese and English in separate sections for people
 - JSON payloads for machines and follow-up automation
 
 ## Recommended Split

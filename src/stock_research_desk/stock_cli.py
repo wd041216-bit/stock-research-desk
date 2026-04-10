@@ -25,6 +25,9 @@ from .documents import (
     build_english_screening_fallback,
     build_screening_doc_payload,
     contains_cjk,
+    write_bilingual_report_docx,
+    write_bilingual_screening_docx,
+    write_bilingual_watchlist_digest_docx,
     write_report_docx,
     write_screening_docx,
     write_watchlist_digest_docx,
@@ -197,8 +200,10 @@ class WorkspacePaths:
     memory_dir: Path
     screens_dir: Path
     digests_dir: Path
+    artifacts_dir: Path
     watchlist_path: Path
     email_state_path: Path
+    single_document_delivery: bool
 
 
 @dataclass(slots=True)
@@ -225,7 +230,9 @@ class StockResearchConfig:
     reports_dir: Path
     screens_dir: Path
     memory_dir: Path
+    artifacts_dir: Path
     watchlist_path: Path
+    single_document_delivery: bool
 
 
 @dataclass(slots=True)
@@ -352,9 +359,12 @@ def dispatch_command(args: argparse.Namespace) -> None:
             config=config,
             verbose=True,
         )
-        print(f"Saved Chinese report to: {artifact['zh_docx_path']}")
-        print(f"Saved English report to: {artifact['en_docx_path']}")
-        print(f"Saved json payload to: {artifact['json_path']}")
+        if artifact["zh_docx_path"] == artifact["en_docx_path"]:
+            print(f"Saved report document to: {artifact['primary_document_path']}")
+        else:
+            print(f"Saved Chinese report to: {artifact['zh_docx_path']}")
+            print(f"Saved English report to: {artifact['en_docx_path']}")
+        print(f"Saved internal machine payload to: {artifact['json_path']}")
         if artifact.get("memory_path"):
             print(f"Updated memory context at: {artifact['memory_path']}")
         return
@@ -377,9 +387,12 @@ def dispatch_command(args: argparse.Namespace) -> None:
             config=config,
             verbose=True,
         )
-        print(f"Saved Chinese screening brief to: {artifact['zh_docx_path']}")
-        print(f"Saved English screening brief to: {artifact['en_docx_path']}")
-        print(f"Saved screening json to: {artifact['json_path']}")
+        if artifact["zh_docx_path"] == artifact["en_docx_path"]:
+            print(f"Saved screening document to: {artifact['primary_document_path']}")
+        else:
+            print(f"Saved Chinese screening brief to: {artifact['zh_docx_path']}")
+            print(f"Saved English screening brief to: {artifact['en_docx_path']}")
+        print(f"Saved internal screening payload to: {artifact['json_path']}")
         for path in artifact.get("report_paths", []):
             print(f"Generated finalist memo: {path}")
         return
@@ -421,10 +434,13 @@ def dispatch_command(args: argparse.Namespace) -> None:
             print(f"Processed {result['processed']} due entries.")
             for item in result["artifacts"]:
                 print(f"- {item['identifier']}: {item['primary_document_path']}")
-            if result.get("zh_digest_path"):
-                print(f"Saved Chinese watchlist digest to: {result['zh_digest_path']}")
-            if result.get("en_digest_path"):
-                print(f"Saved English watchlist digest to: {result['en_digest_path']}")
+            if result.get("digest_path") and result.get("zh_digest_path") == result.get("en_digest_path"):
+                print(f"Saved watchlist digest to: {result['digest_path']}")
+            else:
+                if result.get("zh_digest_path"):
+                    print(f"Saved Chinese watchlist digest to: {result['zh_digest_path']}")
+                if result.get("en_digest_path"):
+                    print(f"Saved English watchlist digest to: {result['en_digest_path']}")
             return
 
     if args.command == "email":
@@ -464,6 +480,14 @@ def default_workspace_home() -> Path:
     return (Path.home() / "Desktop" / "Stock Research Desk").resolve()
 
 
+def _is_within_workspace(path: Path, workspace_dir: Path) -> bool:
+    try:
+        path.resolve().relative_to(workspace_dir.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def resolve_workspace_paths(output_dir: str) -> WorkspacePaths:
     workspace_dir = default_workspace_home()
     workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -472,20 +496,27 @@ def resolve_workspace_paths(output_dir: str) -> WorkspacePaths:
     memory_dir = (workspace_dir / "memory_palace").resolve()
     screens_dir = (workspace_dir / "screenings").resolve()
     digests_dir = (workspace_dir / "digests").resolve()
+    artifacts_dir = (workspace_dir / ".internal").resolve()
     watchlist_path = (workspace_dir / "watchlist.json").resolve()
     email_state_path = (workspace_dir / "email_state.json").resolve()
+    single_document_delivery = _is_within_workspace(reports_dir, workspace_dir)
     reports_dir.mkdir(parents=True, exist_ok=True)
     memory_dir.mkdir(parents=True, exist_ok=True)
     screens_dir.mkdir(parents=True, exist_ok=True)
     digests_dir.mkdir(parents=True, exist_ok=True)
+    (artifacts_dir / "reports").mkdir(parents=True, exist_ok=True)
+    (artifacts_dir / "screenings").mkdir(parents=True, exist_ok=True)
+    (artifacts_dir / "digests").mkdir(parents=True, exist_ok=True)
     return WorkspacePaths(
         workspace_dir=workspace_dir,
         reports_dir=reports_dir,
         memory_dir=memory_dir,
         screens_dir=screens_dir,
         digests_dir=digests_dir,
+        artifacts_dir=artifacts_dir,
         watchlist_path=watchlist_path,
         email_state_path=email_state_path,
+        single_document_delivery=single_document_delivery,
     )
 
 
@@ -520,7 +551,9 @@ def load_config(
         reports_dir=paths.reports_dir,
         screens_dir=paths.screens_dir,
         memory_dir=paths.memory_dir,
+        artifacts_dir=paths.artifacts_dir,
         watchlist_path=paths.watchlist_path,
+        single_document_delivery=paths.single_document_delivery,
     )
 
 
@@ -775,8 +808,17 @@ def run_stock_research(
     )
     slug = slugify(normalized["ticker"] or normalized["company_name"] or stock_name)
     timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    document_paths = build_report_document_paths(reports_dir=config.reports_dir, timestamp=timestamp, slug=slug)
-    json_path = config.reports_dir / f"{timestamp}-{slug}.json"
+    document_paths = build_report_document_paths(
+        reports_dir=config.reports_dir,
+        timestamp=timestamp,
+        slug=slug,
+        single_document=config.single_document_delivery,
+    )
+    json_path = build_machine_artifact_path(
+        artifacts_dir=config.artifacts_dir,
+        category="reports",
+        filename=f"{timestamp}-{slug}.json",
+    )
     zh_payload = {**normalized, "model": config.model}
     en_payload = translate_structured_payload(
         client,
@@ -787,13 +829,20 @@ def run_stock_research(
         task_label="single-name stock research memo",
         fallback_payload=build_english_report_fallback(zh_payload),
     )
-    write_report_docx(document_paths["zh"], payload=zh_payload, language="zh")
-    write_report_docx(document_paths["en"], payload=en_payload, language="en")
+    if config.single_document_delivery:
+        write_bilingual_report_docx(document_paths["primary"], zh_payload=zh_payload, en_payload=en_payload)
+    else:
+        write_report_docx(document_paths["zh"], payload=zh_payload, language="zh")
+        write_report_docx(document_paths["en"], payload=en_payload, language="en")
     json_path.write_text(
         json.dumps(
             {
                 **normalized,
-                "document_paths": {"zh": str(document_paths["zh"]), "en": str(document_paths["en"])},
+                "document_paths": {
+                    "primary": str(document_paths["primary"]),
+                    "zh": str(document_paths["zh"]),
+                    "en": str(document_paths["en"]),
+                },
                 "agent_outputs": {
                     market_analyst.name: market_analyst.content,
                     company_analyst.name: company_analyst.content,
@@ -857,7 +906,7 @@ def run_stock_research(
     return {
         "zh_docx_path": str(document_paths["zh"]),
         "en_docx_path": str(document_paths["en"]),
-        "primary_document_path": str(document_paths["zh"]),
+        "primary_document_path": str(document_paths["primary"]),
         "json_path": str(json_path),
         "memory_path": str(memory_path),
         "payload": normalized,
@@ -1022,8 +1071,17 @@ def run_screening_pipeline(
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     slug = slugify(theme)
-    document_paths = build_screening_document_paths(screens_dir=config.screens_dir, timestamp=timestamp, slug=f"{slug}-screening")
-    json_path = config.screens_dir / f"{timestamp}-{slug}-screening.json"
+    document_paths = build_screening_document_paths(
+        screens_dir=config.screens_dir,
+        timestamp=timestamp,
+        slug=f"{slug}-screening",
+        single_document=config.single_document_delivery,
+    )
+    json_path = build_machine_artifact_path(
+        artifacts_dir=config.artifacts_dir,
+        category="screenings",
+        filename=f"{timestamp}-{slug}-screening.json",
+    )
     summary_payload = {
         "theme": theme,
         "market": market,
@@ -1050,13 +1108,16 @@ def run_screening_pipeline(
         task_label="theme screening summary",
         fallback_payload=build_english_screening_fallback(screening_doc_payload),
     )
-    write_screening_docx(document_paths["zh"], payload=screening_doc_payload, language="zh")
-    write_screening_docx(document_paths["en"], payload=en_screening_payload, language="en")
+    if config.single_document_delivery:
+        write_bilingual_screening_docx(document_paths["primary"], zh_payload=screening_doc_payload, en_payload=en_screening_payload)
+    else:
+        write_screening_docx(document_paths["zh"], payload=screening_doc_payload, language="zh")
+        write_screening_docx(document_paths["en"], payload=en_screening_payload, language="en")
     json_path.write_text(json.dumps(summary_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return {
         "zh_docx_path": str(document_paths["zh"]),
         "en_docx_path": str(document_paths["en"]),
-        "primary_document_path": str(document_paths["zh"]),
+        "primary_document_path": str(document_paths["primary"]),
         "json_path": str(json_path),
         "report_paths": [item["primary_document_path"] for item in finalist_artifacts],
         "payload": summary_payload,
@@ -1587,9 +1648,16 @@ def run_due_watchlist(
     en_digest_path = ""
     if artifacts:
         timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-        digest_paths = build_watchlist_digest_document_paths(digests_dir=paths.digests_dir, timestamp=timestamp)
-        write_watchlist_digest_docx(digest_paths["zh"], artifacts=artifacts, language="zh")
-        write_watchlist_digest_docx(digest_paths["en"], artifacts=artifacts, language="en")
+        digest_paths = build_watchlist_digest_document_paths(
+            digests_dir=paths.digests_dir,
+            timestamp=timestamp,
+            single_document=paths.single_document_delivery,
+        )
+        if paths.single_document_delivery:
+            write_bilingual_watchlist_digest_docx(digest_paths["primary"], artifacts=artifacts)
+        else:
+            write_watchlist_digest_docx(digest_paths["zh"], artifacts=artifacts, language="zh")
+            write_watchlist_digest_docx(digest_paths["en"], artifacts=artifacts, language="en")
         zh_digest_path = str(digest_paths["zh"])
         en_digest_path = str(digest_paths["en"])
     return {
@@ -1852,7 +1920,7 @@ def execute_email_command(
         )
         payload = artifact.get("payload", {})
         body = render_email_research_reply(payload, artifact["primary_document_path"])
-        return {"body": body, "attachments": [artifact["zh_docx_path"], artifact["en_docx_path"], artifact["json_path"]]}
+        return {"body": body, "attachments": unique_attachment_paths(artifact["primary_document_path"])}
     if kind == "screen":
         artifact = run_screening_pipeline(
             theme=command["theme"],
@@ -1864,7 +1932,7 @@ def execute_email_command(
             verbose=verbose,
         )
         body = render_email_screen_reply(theme=command["theme"], payload=artifact["payload"], document_path=artifact["primary_document_path"])
-        attachments = [artifact["zh_docx_path"], artifact["en_docx_path"], artifact["json_path"], *artifact.get("report_paths", [])]
+        attachments = unique_attachment_paths(artifact["primary_document_path"], *artifact.get("report_paths", []))
         return {"body": body, "attachments": attachments}
     if kind == "watchlist_add":
         entry = add_watchlist_entry(
@@ -1888,12 +1956,11 @@ def execute_email_command(
     if kind == "watchlist_list":
         entries = load_watchlist(paths)
         body = render_email_watchlist_roster_reply(entries)
-        return {"body": body, "attachments": [str(paths.watchlist_path)] if paths.watchlist_path.exists() else []}
+        return {"body": body, "attachments": []}
     if kind == "watchlist_run_due":
         result = run_due_watchlist(paths=paths, config=config, limit=10, verbose=verbose)
         body = render_email_watchlist_digest_reply(result)
-        attachments = [item for item in [result.get("zh_digest_path"), result.get("en_digest_path")] if item]
-        attachments.extend(item["primary_document_path"] for item in result["artifacts"])
+        attachments = unique_attachment_paths(result.get("digest_path"), *(item["primary_document_path"] for item in result["artifacts"]))
         return {"body": body, "attachments": attachments}
     raise RuntimeError(f"Unsupported email command: {kind}")
 
@@ -2942,25 +3009,49 @@ def translate_structured_payload(
     return fallback_payload
 
 
-def build_report_document_paths(*, reports_dir: Path, timestamp: str, slug: str) -> dict[str, Path]:
-    return {
-        "zh": reports_dir / f"{timestamp}-{slug}-zh.docx",
-        "en": reports_dir / f"{timestamp}-{slug}-en.docx",
-    }
+def build_report_document_paths(*, reports_dir: Path, timestamp: str, slug: str, single_document: bool = False) -> dict[str, Path]:
+    if single_document:
+        primary = reports_dir / f"{timestamp}-{slug}.docx"
+        return {"primary": primary, "zh": primary, "en": primary}
+    zh = reports_dir / f"{timestamp}-{slug}-zh.docx"
+    en = reports_dir / f"{timestamp}-{slug}-en.docx"
+    return {"primary": zh, "zh": zh, "en": en}
 
 
-def build_screening_document_paths(*, screens_dir: Path, timestamp: str, slug: str) -> dict[str, Path]:
-    return {
-        "zh": screens_dir / f"{timestamp}-{slug}-zh.docx",
-        "en": screens_dir / f"{timestamp}-{slug}-en.docx",
-    }
+def build_screening_document_paths(*, screens_dir: Path, timestamp: str, slug: str, single_document: bool = False) -> dict[str, Path]:
+    if single_document:
+        primary = screens_dir / f"{timestamp}-{slug}.docx"
+        return {"primary": primary, "zh": primary, "en": primary}
+    zh = screens_dir / f"{timestamp}-{slug}-zh.docx"
+    en = screens_dir / f"{timestamp}-{slug}-en.docx"
+    return {"primary": zh, "zh": zh, "en": en}
 
 
-def build_watchlist_digest_document_paths(*, digests_dir: Path, timestamp: str) -> dict[str, Path]:
-    return {
-        "zh": digests_dir / f"{timestamp}-watchlist-digest-zh.docx",
-        "en": digests_dir / f"{timestamp}-watchlist-digest-en.docx",
-    }
+def build_watchlist_digest_document_paths(*, digests_dir: Path, timestamp: str, single_document: bool = False) -> dict[str, Path]:
+    if single_document:
+        primary = digests_dir / f"{timestamp}-watchlist-digest.docx"
+        return {"primary": primary, "zh": primary, "en": primary}
+    zh = digests_dir / f"{timestamp}-watchlist-digest-zh.docx"
+    en = digests_dir / f"{timestamp}-watchlist-digest-en.docx"
+    return {"primary": zh, "zh": zh, "en": en}
+
+
+def build_machine_artifact_path(*, artifacts_dir: Path, category: str, filename: str) -> Path:
+    target_dir = artifacts_dir / category
+    target_dir.mkdir(parents=True, exist_ok=True)
+    return target_dir / filename
+
+
+def unique_attachment_paths(*paths: str | None) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in paths:
+        candidate = str(item or "").strip()
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        ordered.append(candidate)
+    return ordered
 
 
 def safe_run_agent_with_tools(**kwargs: Any) -> AgentRunResult:

@@ -70,6 +70,7 @@ from stock_research_desk.stock_cli import (
     sector_profile_for,
     render_markdown,
     render_agent_trace_summary,
+    resolve_research_request,
     resolve_think,
     sanitize_source_text,
     save_memory_context,
@@ -184,6 +185,16 @@ def test_looks_like_us_ticker_accepts_plain_us_symbols() -> None:
     assert looks_like_us_ticker("WLDS")
     assert not looks_like_us_ticker("603283.SH")
     assert not looks_like_us_ticker("300007")
+
+
+def test_resolve_research_request_supports_ticker_and_market_only() -> None:
+    request = resolve_research_request(identifier="603283.SH", ticker=None, market="", market_positional="CN")
+    assert request == {"stock_name": "603283.SH", "ticker": "603283.SH", "market": "CN"}
+
+
+def test_resolve_research_request_preserves_legacy_name_and_ticker_flow() -> None:
+    request = resolve_research_request(identifier="赛腾股份", ticker="603283.SH", market="CN", market_positional=None)
+    assert request == {"stock_name": "赛腾股份", "ticker": "603283.SH", "market": "CN"}
 
 
 def test_market_compatible_candidate_rejects_cn_names_for_us_screen() -> None:

@@ -343,9 +343,10 @@ def build_research_parser(parent: argparse.ArgumentParser | None = None, *, impl
     parser = parent or argparse.ArgumentParser(
         description="Run a multi-agent stock research workflow on Ollama Cloud and save local Chinese and English report documents."
     )
-    parser.add_argument("stock_name", help="Company or stock name, for example: 赛腾股份")
-    parser.add_argument("--ticker", help="Optional ticker or exchange symbol hint.")
-    parser.add_argument("--market", default="CN", help="Market hint, default: CN")
+    parser.add_argument("identifier", help="Ticker or company name, for example: 603283.SH or 赛腾股份")
+    parser.add_argument("market_positional", nargs="?", help="Optional market shorthand, for example: CN or US")
+    parser.add_argument("--ticker", help="Optional ticker or exchange symbol hint. If omitted, ticker-like identifiers are used directly.")
+    parser.add_argument("--market", default="", help="Market hint. Defaults to the positional market or CN.")
     parser.add_argument("--angle", default="", help="Optional research angle or thesis framing.")
     add_runtime_args(parser)
     return parser
@@ -363,6 +364,12 @@ def add_runtime_args(parser: argparse.ArgumentParser, *, include_model: bool = T
 
 def dispatch_command(args: argparse.Namespace) -> None:
     if args.command == "research":
+        request = resolve_research_request(
+            identifier=args.identifier,
+            ticker=args.ticker,
+            market=args.market,
+            market_positional=getattr(args, "market_positional", None),
+        )
         config = load_config(
             model=args.model,
             think=args.think,
@@ -372,9 +379,9 @@ def dispatch_command(args: argparse.Namespace) -> None:
             output_dir=args.output_dir,
         )
         artifact = run_stock_research(
-            stock_name=args.stock_name,
-            ticker=args.ticker,
-            market=args.market,
+            stock_name=request["stock_name"],
+            ticker=request["ticker"],
+            market=request["market"],
             angle=args.angle,
             config=config,
             verbose=True,
@@ -5095,6 +5102,32 @@ def normalize_confidence(value: str) -> str:
     if lowered in {"2", "1", "low", "weak"} or any(token in value for token in ["低", "偏低"]):
         return "low"
     return "medium"
+
+
+def looks_like_stock_identifier(value: str, market: str) -> bool:
+    text = value.strip()
+    if not text or contains_cjk(text) or " " in text:
+        return False
+    normalized = normalize_ticker(text, "", market)
+    if market.upper() == "CN":
+        return bool(re.fullmatch(r"\d{6}(?:\.(?:SH|SZ))?", normalized))
+    if market.upper() == "US":
+        return looks_like_us_ticker(normalized)
+    return bool(re.fullmatch(r"[A-Z0-9.\-]{1,12}", normalized.upper()))
+
+
+def resolve_research_request(*, identifier: str, ticker: str | None, market: str, market_positional: str | None = None) -> dict[str, str | None]:
+    resolved_market = (market or market_positional or "CN").strip().upper() or "CN"
+    clean_identifier = identifier.strip()
+    ticker_hint = (ticker or "").strip()
+    if ticker_hint:
+        resolved_ticker = normalize_ticker(ticker_hint, "", resolved_market)
+        stock_name = clean_identifier or resolved_ticker
+        return {"stock_name": stock_name, "ticker": resolved_ticker, "market": resolved_market}
+    if looks_like_stock_identifier(clean_identifier, resolved_market):
+        resolved_ticker = normalize_ticker(clean_identifier, "", resolved_market)
+        return {"stock_name": resolved_ticker, "ticker": resolved_ticker, "market": resolved_market}
+    return {"stock_name": clean_identifier, "ticker": None, "market": resolved_market}
 
 
 def normalize_ticker(value: str, exchange: Any, market: str) -> str:

@@ -145,6 +145,12 @@ The CLI auto-loads the local `.env` file from the repo root, so you do not need 
 Run a first memo:
 
 ```bash
+./bin/research-stock 603283.SH CN --angle "中国故事"
+```
+
+You can still use the legacy style when you want to pin a display name:
+
+```bash
 ./bin/research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事"
 ```
 

@@ -5,6 +5,12 @@
 ## One Run
 
 ```bash
+./bin/research-stock 603283.SH CN --angle "中国故事"
+```
+
+Legacy compatible form:
+
+```bash
 ./bin/research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事"
 ```
 

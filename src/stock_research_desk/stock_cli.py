@@ -1420,6 +1420,11 @@ def merge_screen_candidates(candidates: list[dict[str, Any]], *, references: lis
         identifier = slugify(item.get("ticker") or item.get("company_name") or "")
         reference = reference_map.get(identifier) or {}
         combined = {**reference, **item}
+        combined["company_name"] = choose_preferred_company_name(
+            str(reference.get("company_name") or ""),
+            str(item.get("company_name") or ""),
+            ticker=str(combined.get("ticker") or reference.get("ticker") or item.get("ticker") or ""),
+        )
         for key in ("vertical_summary", "horizontal_summary", "why_now", "why_not_now", "evidence_snapshot", "diligence_note"):
             if key not in combined and key in reference:
                 combined[key] = reference[key]
@@ -4373,6 +4378,25 @@ def candidate_name_needs_cleanup(value: str) -> bool:
     return any(f" {verb} " in f" {text} " for verb in COMPANY_ACTION_VERBS)
 
 
+def choose_preferred_company_name(*values: str, ticker: str = "") -> str:
+    cleaned: list[str] = []
+    for value in values:
+        text = clean_company_name(value)
+        if text and text not in cleaned:
+            cleaned.append(text)
+    if not cleaned:
+        return ticker.strip().upper()
+    ranked = sorted(
+        cleaned,
+        key=lambda item: (
+            candidate_name_needs_cleanup(item),
+            item.strip().upper() == ticker.strip().upper(),
+            len(item),
+        ),
+    )
+    return ranked[0]
+
+
 def clean_company_name(value: str) -> str:
     text = sanitize_source_text(value)
     text = re.split(r"[|:–—]", text, maxsplit=1)[0].strip()
@@ -4389,17 +4413,19 @@ def clean_company_name(value: str) -> str:
 
 def extract_identity_hints(text: str) -> list[tuple[str, str]]:
     candidates: list[tuple[str, str]] = []
+    company_token = r"[A-Z][A-Za-z0-9&',./-]+"
+    company_phrase = rf"{company_token}(?:\s+{company_token}){{0,7}}"
     patterns = [
         re.compile(
-            r"([A-Z][A-Za-z0-9&'./-]+(?:\s+[A-Z][A-Za-z0-9&'./-]+){0,6})\s*\((?:NASDAQ|NYSE|AMEX|OTCQX|OTCQB|OTC)[:\s-]*([A-Z]{1,5})\)",
+            rf"({company_phrase})\s*\((?:NASDAQ|NYSE|AMEX|OTCQX|OTCQB|OTC)[:\s-]*([A-Z]{{1,5}})\)",
             re.IGNORECASE,
         ),
         re.compile(
-            r"([A-Z][A-Za-z0-9&'./-]+(?:\s+[A-Z][A-Za-z0-9&'./-]+){0,6}).{0,40}US OTCQX[:\s-]*([A-Z]{1,5})",
+            rf"({company_phrase}).{{0,40}}US OTCQX[:\s-]*([A-Z]{{1,5}})",
             re.IGNORECASE,
         ),
         re.compile(
-            r"([A-Z][A-Za-z0-9&'./-]+(?:\s+[A-Z][A-Za-z0-9&'./-]+){0,6})\s*[-|:]\s*(?:NASDAQ|NYSE|AMEX|OTCQX|OTCQB|OTC)[:\s-]*([A-Z]{1,5})",
+            rf"({company_phrase})\s*[-|:]\s*(?:NASDAQ|NYSE|AMEX|OTCQX|OTCQB|OTC)[:\s-]*([A-Z]{{1,5}})",
             re.IGNORECASE,
         ),
     ]
@@ -4425,12 +4451,20 @@ def derive_company_identity(*, market: str, candidate: dict[str, Any], evidence:
         for company, ticker in extract_identity_hints(text):
             identity_counts[(company, ticker)] = identity_counts.get((company, ticker), 0) + 1
     if identity_counts:
-        best_company, best_ticker = max(identity_counts.items(), key=lambda entry: (entry[1], len(entry[0][0])))[0]
+        ticker_counts: dict[str, int] = {}
+        ticker_company_names: dict[str, list[str]] = {}
+        for (company, ticker), count in identity_counts.items():
+            ticker_counts[ticker] = ticker_counts.get(ticker, 0) + count
+            ticker_company_names.setdefault(ticker, []).append(company)
+        best_ticker = max(ticker_counts.items(), key=lambda entry: (entry[1], len(entry[0])))[0]
+        best_company = choose_preferred_company_name(
+            current_name,
+            *ticker_company_names.get(best_ticker, []),
+            ticker=best_ticker,
+        )
         return best_company, best_ticker
     if market.upper() == "US":
-        if candidate_name_needs_cleanup(current_name):
-            current_name = clean_company_name(current_name)
-        return current_name or current_ticker, current_ticker
+        return choose_preferred_company_name(current_name, ticker=current_ticker), current_ticker
     return current_name or current_ticker, current_ticker
 
 

@@ -1,16 +1,16 @@
 {
   "schema_version": 2,
   "status": "active",
-  "current_item_id": "plan-decomposition-b5186b6d44",
+  "current_item_id": null,
   "next_action": "Execute the planned step: Clean title-style company names into legal/trading entity names more reliably.",
   "last_scan_at": "2026-04-10T08:28:19+00:00",
-  "last_checkpoint_at": "2026-04-10T08:28:18+00:00",
+  "last_checkpoint_at": "2026-04-10T08:36:35+00:00",
   "last_stop_reason": null,
-  "last_completed_item_id": "plan-decomposition-b7d33048a3",
+  "last_completed_item_id": "plan-decomposition-b5186b6d44",
   "verification": {
     "status": "passed",
-    "summary": "74 tests passed and runtime checks showed BCI, humanoid robotics, and unknown sparse themes now produce distinct sector query profiles instead of empty planning hints.",
-    "updated_at": "2026-04-10T08:28:18+00:00"
+    "summary": "76 tests passed, and direct runtime probes showed noisy labels like \"Nexalin Technology Stock Price Today NXL\" now normalize to \"Nexalin Technology\" with ticker NXL during both identity recovery and merged finalist generation.",
+    "updated_at": "2026-04-10T08:36:35+00:00"
   },
   "github_repo": "wd041216-bit/stock-research-desk",
   "publish_mode": "checkpoint_commit"

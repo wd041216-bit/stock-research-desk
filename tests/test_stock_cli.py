@@ -345,7 +345,7 @@ def test_derive_company_identity_recovers_company_name_and_otc_ticker_from_press
         ],
         note="",
     )
-    assert company_name == "ONWARD Medical N.V."
+    assert company_name == "ONWARD Medical"
     assert ticker == "ONWRY"
 
 
@@ -354,6 +354,23 @@ def test_clean_company_name_style_noise_is_removed_via_identity_resolution() -> 
         market="US",
         candidate={"company_name": "Nexalin Technology Stock Price Today NXL", "ticker": "NXL"},
         evidence=[],
+        note="",
+    )
+    assert company_name == "Nexalin Technology"
+    assert ticker == "NXL"
+
+
+def test_derive_company_identity_does_not_collapse_to_suffix_only_entity() -> None:
+    company_name, ticker = derive_company_identity(
+        market="US",
+        candidate={"company_name": "Nexalin Technology Stock Price Today NXL", "ticker": "NXL"},
+        evidence=[
+            {
+                "title": "Nexalin Technology, Inc. (NASDAQ: NXL) advances neurostimulation strategy",
+                "claim": "Nexalin Technology, Inc. (NASDAQ: NXL) is a publicly traded healthcare company.",
+                "excerpt": "",
+            }
+        ],
         note="",
     )
     assert company_name == "Nexalin Technology"
@@ -1130,6 +1147,28 @@ def test_merge_screen_candidates_restores_stage_one_dossier_fields() -> None:
     assert merged[0]["vertical_summary"] == "业务与主题契合。"
     assert merged[0]["horizontal_summary"] == "横向更值得继续研究。"
     assert merged[0]["why_not_now"] == "客户集中度仍高。"
+
+
+def test_merge_screen_candidates_prefers_cleaner_legal_entity_name() -> None:
+    merged = merge_screen_candidates(
+        [
+            {
+                "company_name": "Nexalin Technology Stock Price Today NXL",
+                "ticker": "NXL",
+                "screen_score": 88,
+            }
+        ],
+        references=[
+            {
+                "company_name": "Nexalin Technology, Inc.",
+                "ticker": "NXL",
+                "screen_score": 80,
+                "vertical_summary": "real company",
+            }
+        ],
+    )
+    assert merged[0]["company_name"] == "Nexalin Technology"
+    assert merged[0]["vertical_summary"] == "real company"
 
 
 def test_source_quality_score_prefers_official_domains() -> None:

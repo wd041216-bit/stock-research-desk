@@ -23,6 +23,11 @@ The standalone CLI still matters because it gives the repo:
 - a concrete implementation of the investor-council workflow
 - a document export layer that Codex can also reuse
 
+Both modes now share the same delivery convention:
+
+- separate Chinese and English DOCX reports for people
+- JSON payloads for machines and follow-up automation
+
 ## Recommended Split
 
 - Codex skill:

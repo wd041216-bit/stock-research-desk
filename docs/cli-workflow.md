@@ -36,9 +36,10 @@ The second-screen council is no longer a single pass. It now includes:
 
 Artifacts:
 
-- `~/Desktop/Stock Research Desk/screenings/*.md`
+- `~/Desktop/Stock Research Desk/screenings/*-zh.docx`
+- `~/Desktop/Stock Research Desk/screenings/*-en.docx`
 - `~/Desktop/Stock Research Desk/screenings/*.json`
-- finalist Markdown memos in `~/Desktop/Stock Research Desk/reports/`
+- finalist DOCX memos in `~/Desktop/Stock Research Desk/reports/`
 
 ## Watchlist
 
@@ -58,7 +59,8 @@ Each watchlist item stores:
 
 When due entries are processed, the desk also writes:
 
-- `~/Desktop/Stock Research Desk/digests/*-watchlist-digest.md`
+- `~/Desktop/Stock Research Desk/digests/*-watchlist-digest-zh.docx`
+- `~/Desktop/Stock Research Desk/digests/*-watchlist-digest-en.docx`
 
 ## Email Control
 
@@ -103,14 +105,16 @@ Reply formats:
 7. The guru council compresses consensus and disagreement.
 8. The MiroFish-style scenario engine writes bull / base / bear paths.
 9. The price committee proposes short-, medium-, and long-term targets.
-10. The final memo is synthesized into Markdown and JSON.
+10. The final memo is synthesized into separate Chinese and English DOCX files plus JSON.
 
 ## Artifacts
 
-- `~/Desktop/Stock Research Desk/reports/*.md`
+- `~/Desktop/Stock Research Desk/reports/*-zh.docx`
+- `~/Desktop/Stock Research Desk/reports/*-en.docx`
 - `~/Desktop/Stock Research Desk/reports/*.json`
 - `~/Desktop/Stock Research Desk/memory_palace/*.json`
-- `~/Desktop/Stock Research Desk/screenings/*.md`
+- `~/Desktop/Stock Research Desk/screenings/*-zh.docx`
+- `~/Desktop/Stock Research Desk/screenings/*-en.docx`
 - `~/Desktop/Stock Research Desk/screenings/*.json`
 
 ## Codex Skill Add-On
@@ -124,7 +128,7 @@ That additive mode can:
 - produce separate Chinese and English DOCX reports
 - move recurring watchlists into Codex automations
 
-The default CLI documented on this page stays Markdown-and-JSON first.
+The default CLI documented on this page stays native to the repo workflow, but its final human-readable deliverables are also document-first.
 
 ## Recommended Flags
 

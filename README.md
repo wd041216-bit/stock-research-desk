@@ -2,7 +2,7 @@
 
 ![Stock Research Desk banner](assets/banner.svg)
 
-Cloud-only multi-agent stock research for serious single-name work, with an additive Codex-native skill mode.
+Cloud-only multi-agent stock research for serious single-name work, with an additive Codex-native skill mode and document-first delivery.
 
 `stock-research-desk` can now do three kinds of work:
 
@@ -114,11 +114,12 @@ Run a first memo:
 
 The default CLI command writes:
 
-- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.md`
+- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-zh.docx`
+- `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-en.docx`
 - `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>.json`
 - `~/Desktop/Stock Research Desk/memory_palace/<ticker>.json`
 
-If you use the separate Codex skill mode, Codex can additionally generate:
+The separate Codex skill mode uses the same document-first delivery shape:
 
 - `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-zh.docx`
 - `~/Desktop/Stock Research Desk/reports/<timestamp>-<ticker>-en.docx`
@@ -229,7 +230,7 @@ In Codex-native mode:
 - recurring watchlists should be scheduled through Codex automations, not the repo's older internal scheduler
 - final deliverables should be kept as separate Chinese and English DOCX reports
 
-This is an additional mode, not a replacement for the default CLI and mailbox workflows.
+This is an additional mode, not a replacement for the default CLI and mailbox workflows. The host mode changes, but final human-readable deliverables stay document-first in both paths.
 
 ## Example Output Shape
 

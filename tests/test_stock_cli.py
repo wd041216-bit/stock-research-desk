@@ -930,7 +930,9 @@ def test_run_due_watchlist_updates_next_run(monkeypatch: pytest.MonkeyPatch, tmp
 
     def fake_run_stock_research(**_: object) -> dict[str, object]:
         return {
-            "markdown_path": "/tmp/report.md",
+            "zh_docx_path": "/tmp/report-zh.docx",
+            "en_docx_path": "/tmp/report-en.docx",
+            "primary_document_path": "/tmp/report-zh.docx",
             "json_path": "/tmp/report.json",
             "memory_path": "/tmp/memory.json",
             "payload": {"verdict": "watchlist"},
@@ -944,9 +946,9 @@ def test_run_due_watchlist_updates_next_run(monkeypatch: pytest.MonkeyPatch, tmp
     result = run_due_watchlist(paths=paths, config=FakeConfig(), limit=5, verbose=False)
     updated = load_watchlist(paths)
     assert result["processed"] == 1
-    assert updated[0]["last_report_path"] == "/tmp/report.md"
+    assert updated[0]["last_report_path"] == "/tmp/report-zh.docx"
     assert updated[0]["next_run_at"] != "2026-04-01T00:00:00+00:00"
-    assert result["digest_path"].endswith(".md")
+    assert result["digest_path"].endswith(".docx")
 
 
 def test_render_watchlist_digest_markdown_includes_verdict_and_path() -> None:
@@ -954,7 +956,7 @@ def test_render_watchlist_digest_markdown_includes_verdict_and_path() -> None:
         [
             {
                 "identifier": "603283-sh",
-                "markdown_path": "/tmp/report.md",
+                "primary_document_path": "/tmp/report-zh.docx",
                 "verdict": "watchlist",
                 "quick_take": "仍需继续验证订单质量。",
             }
@@ -962,7 +964,7 @@ def test_render_watchlist_digest_markdown_includes_verdict_and_path() -> None:
     )
     assert "Watchlist" in markdown
     assert "603283-sh" in markdown
-    assert "/tmp/report.md" in markdown
+    assert "/tmp/report-zh.docx" in markdown
 
 
 def test_parse_email_command_supports_research_screen_and_watchlist() -> None:
@@ -997,7 +999,7 @@ def test_render_email_research_reply_includes_bull_risk_and_targets() -> None:
                 "long_term": {"price": "60", "horizon": "12-36个月", "thesis": "质量重估"},
             },
         },
-        "/tmp/report.md",
+        "/tmp/report-zh.docx",
     )
     assert "Single-Name Desk Note" in body
     assert "Top bull points" in body
@@ -1025,7 +1027,7 @@ def test_render_email_screen_reply_includes_why_now_and_counts() -> None:
                 }
             ],
         },
-        markdown_path="/tmp/screen.md",
+        document_path="/tmp/screen-zh.docx",
     )
     assert "Screening Brief" in body
     assert "Initial candidates: 7" in body
@@ -1056,7 +1058,7 @@ def test_render_email_watchlist_digest_reply_uses_briefing_format() -> None:
     body = render_email_watchlist_digest_reply(
         {
             "processed": 2,
-            "digest_path": "/tmp/digest.md",
+            "digest_path": "/tmp/digest-zh.docx",
             "artifacts": [
                 {
                     "identifier": "603283-sh",
@@ -1095,7 +1097,7 @@ def test_render_watchlist_digest_markdown_includes_target_snapshot() -> None:
         [
             {
                 "identifier": "603283-sh",
-                "markdown_path": "/tmp/report.md",
+                "primary_document_path": "/tmp/report-zh.docx",
                 "verdict": "watchlist",
                 "quick_take": "半导体弹性仍待验证。",
                 "target_snapshot": "ST 45 (1-3个月)",
@@ -1120,7 +1122,7 @@ def test_render_screening_markdown_includes_summary_rank_and_rejects() -> None:
                 "ticker": "603283.SH",
                 "screen_score": 82,
                 "stage_two_note": "why now 更明确。",
-                "markdown_path": "/tmp/report.md",
+                "primary_document_path": "/tmp/report-zh.docx",
                 "why_not_now": "仍需验证客户结构改善。",
                 "vertical_summary": "业务与主题契合度更高。",
                 "horizontal_summary": "相对同类更适合优先深研。",

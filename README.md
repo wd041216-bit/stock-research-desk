@@ -13,6 +13,12 @@ Cloud-only multi-agent stock research for serious single-name work.
 
 Everything still stays terminal-first and cloud-only through Ollama Cloud.
 
+In practice, that means you can use it in three modes:
+
+- type one stock into the terminal and get a buy-side-style memo
+- give it a sector direction and let it narrow candidates before expensive deep work
+- treat your mailbox like a lightweight research command queue
+
 ## What It Is
 
 This is a terminal-first research desk for one-name equity work.

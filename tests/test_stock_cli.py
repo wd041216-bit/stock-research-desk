@@ -13,6 +13,9 @@ from stock_research_desk.stock_cli import (
     default_workspace_home,
     load_watchlist,
     parse_email_command,
+    render_email_research_reply,
+    render_email_screen_reply,
+    render_screening_markdown,
     normalize_screen_candidates,
     parse_interval_hours,
     build_sentiment_simulator_prompt,
@@ -694,6 +697,82 @@ def test_parse_email_command_supports_research_screen_and_watchlist() -> None:
 def test_parse_email_command_supports_watchlist_short_commands() -> None:
     assert parse_email_command(subject="watchlist list", body="") == {"kind": "watchlist_list"}
     assert parse_email_command(subject="watchlist run-due", body="") == {"kind": "watchlist_run_due"}
+
+
+def test_render_email_research_reply_includes_bull_risk_and_targets() -> None:
+    body = render_email_research_reply(
+        {
+            "company_name": "赛腾股份",
+            "verdict": "watchlist",
+            "confidence": "medium",
+            "quick_take": "订单质量还需要更多验证。",
+            "bull_case": ["国产替代主线仍在。"],
+            "risks": ["客户集中度偏高。"],
+            "target_prices": {
+                "short_term": {"price": "45.5", "horizon": "1-3个月", "thesis": "订单验证"},
+                "medium_term": {"price": "52", "horizon": "3-12个月", "thesis": "估值锚修复"},
+                "long_term": {"price": "60", "horizon": "12-36个月", "thesis": "质量重估"},
+            },
+        },
+        "/tmp/report.md",
+    )
+    assert "Top bull points" in body
+    assert "Key risks" in body
+    assert "Short: 45.5" in body
+
+
+def test_render_email_screen_reply_includes_why_now_and_counts() -> None:
+    body = render_email_screen_reply(
+        theme="中国机器人",
+        payload={
+            "initial_candidates": [{"company_name": "A"}] * 7,
+            "stage_one_candidates": [{"company_name": "A"}] * 4,
+            "finalists": [
+                {
+                    "company_name": "赛腾股份",
+                    "ticker": "603283.SH",
+                    "screen_score": 82,
+                    "stage_two_note": "订单和产业趋势的交集更清晰。",
+                    "payload": {"verdict": "watchlist", "quick_take": "值得继续研究。"},
+                }
+            ],
+        },
+        markdown_path="/tmp/screen.md",
+    )
+    assert "Initial candidates: 7" in body
+    assert "Second-screen pool: 4" in body
+    assert "why_now: 订单和产业趋势的交集更清晰。" in body
+
+
+def test_render_screening_markdown_includes_summary_rank_and_rejects() -> None:
+    markdown = render_screening_markdown(
+        theme="中国机器人",
+        market="CN",
+        stage_one_candidates=[
+            {"company_name": "赛腾股份", "ticker": "603283.SH", "screen_score": 82, "rationale": "先进制造逻辑更强。"},
+            {"company_name": "中科飞测", "ticker": "688361.SH", "screen_score": 75, "rationale": "更偏设备纯度。"},
+        ],
+        finalists=[
+            {
+                "company_name": "赛腾股份",
+                "ticker": "603283.SH",
+                "screen_score": 82,
+                "stage_two_note": "why now 更明确。",
+                "markdown_path": "/tmp/report.md",
+                "payload": {
+                    "verdict": "watchlist",
+                    "confidence": "medium",
+                    "quick_take": "值得继续深挖。",
+                    "bull_case": ["国产替代主线仍在。"],
+                    "bear_case": ["客户集中度仍高。"],
+                    "target_prices": {"short_term": {"price": "45", "horizon": "1-3个月"}},
+                },
+            }
+        ],
+    )
+    assert "## 推荐摘要" in markdown
+    assert "Recommendation rank" in markdown
+    assert "## 本轮未晋级名单" in markdown
 
 
 def test_extract_target_prices_from_text_reads_price_horizon_and_thesis() -> None:

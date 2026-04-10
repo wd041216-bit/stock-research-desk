@@ -1328,6 +1328,8 @@ def execute_email_command(
 
 def render_email_research_reply(payload: dict[str, Any], markdown_path: str) -> str:
     targets = payload.get("target_prices") or {}
+    bull_case = list(payload.get("bull_case") or [])
+    risks = list(payload.get("risks") or [])
     lines = [
         f"Research completed for {payload.get('company_name') or payload.get('ticker')}.",
         "",
@@ -1335,8 +1337,18 @@ def render_email_research_reply(payload: dict[str, Any], markdown_path: str) -> 
         f"- Confidence: {payload.get('confidence', 'medium')}",
         f"- Quick take: {payload.get('quick_take', '')}",
         "",
-        "Target prices:",
+        "Top bull points:",
     ]
+    lines.extend(f"- {item}" for item in bull_case[:3] or ["Not enough evidence to form strong bull points yet."])
+    lines.extend([
+        "",
+        "Key risks:",
+    ])
+    lines.extend(f"- {item}" for item in risks[:3] or ["Risks still need more verification."])
+    lines.extend([
+        "",
+        "Target prices:",
+    ])
     for key, label in (("short_term", "Short"), ("medium_term", "Medium"), ("long_term", "Long")):
         item = targets.get(key) or {}
         lines.append(f"- {label}: {item.get('price', 'n/a')} | {item.get('horizon', 'n/a')} | {item.get('thesis', '')}")
@@ -1346,16 +1358,26 @@ def render_email_research_reply(payload: dict[str, Any], markdown_path: str) -> 
 
 def render_email_screen_reply(*, theme: str, payload: dict[str, Any], markdown_path: str) -> str:
     finalists = payload.get("finalists") or []
+    initial_candidates = payload.get("initial_candidates") or []
+    stage_one_candidates = payload.get("stage_one_candidates") or []
     lines = [
         f"Screening completed for theme: {theme}",
         "",
-        f"Finalists: {len(finalists)}",
+        f"- Initial candidates: {len(initial_candidates)}",
+        f"- Second-screen pool: {len(stage_one_candidates)}",
+        f"- Final recommendations: {len(finalists)}",
+        "",
+        "Recommended names:",
     ]
-    for item in finalists:
+    for rank, item in enumerate(finalists, start=1):
         report_payload = item.get("payload") or {}
-        lines.append(
-            f"- {item.get('company_name')} {item.get('ticker', '')} | screen={item.get('screen_score')} | "
-            f"verdict={report_payload.get('verdict', 'watchlist')} | {report_payload.get('quick_take', '')}"
+        lines.extend(
+            [
+                f"{rank}. {item.get('company_name')} {item.get('ticker', '')}".strip(),
+                f"   screen_score={item.get('screen_score')} | verdict={report_payload.get('verdict', 'watchlist')}",
+                f"   why_now: {item.get('stage_two_note', '') or item.get('rationale', '') or 'n/a'}",
+                f"   quick_take: {report_payload.get('quick_take', '') or 'n/a'}",
+            ]
         )
     lines.extend(["", f"Attached screening summary: {markdown_path}"])
     return "\n".join(lines)
@@ -1474,21 +1496,46 @@ def render_screening_markdown(
     stage_one_candidates: list[dict[str, Any]],
     finalists: list[dict[str, Any]],
 ) -> str:
+    def recommendation_rank(item: dict[str, Any]) -> str:
+        payload = item.get("payload") or {}
+        verdict = str(payload.get("verdict") or "watchlist")
+        confidence = str(payload.get("confidence") or "medium")
+        quick_take = str(payload.get("quick_take") or "").strip()
+        why_now = str(item.get("stage_two_note") or item.get("rationale") or "").strip()
+        targets = payload.get("target_prices") or {}
+        short_term = targets.get("short_term") or {}
+        return "\n".join(
+            [
+                f"### {item.get('company_name')} `{item.get('ticker', '')}`",
+                f"- Recommendation rank: `{rank_label(item)}`",
+                f"- Screen score: `{item.get('screen_score', '')}`",
+                f"- Research verdict: `{verdict}`",
+                f"- Confidence: `{confidence}`",
+                f"- Why now: {why_now or '待补充'}",
+                f"- Quick take: {quick_take or '待补充'}",
+                f"- Short-term target: {short_term.get('price', 'n/a')} | {short_term.get('horizon', 'n/a')}",
+                f"- Bull/Bear focus: {summarize_bull_bear(payload)}",
+                f"- Report path: `{item.get('markdown_path', '')}`",
+            ]
+        )
+
+    def rejected_bucket(items: list[dict[str, Any]]) -> str:
+        rejected = [item for item in items if slugify(item.get("ticker") or item.get("company_name") or "") not in {
+            slugify(finalist.get("ticker") or finalist.get("company_name") or "") for finalist in finalists
+        }]
+        if not rejected:
+            return "- No clear rejects from the second-screen pool."
+        return "\n".join(
+            f"- `{item.get('ticker') or item.get('company_name')}` | score={item.get('screen_score')} | not promoted because: {item.get('rationale', 'research upside was weaker')}"
+            for item in rejected[:6]
+        )
+
     stage_one_block = "\n".join(
         f"- `{item.get('ticker') or item.get('company_name')}` | score={item.get('screen_score')} | {item.get('rationale', '')}"
         for item in stage_one_candidates
     ) or "- 初筛没有稳定返回候选。"
     finalist_block = "\n".join(
-        "\n".join(
-            [
-                f"### {item.get('company_name')} `{item.get('ticker', '')}`",
-                f"- 初筛分数：{item.get('screen_score', '')}",
-                f"- 二筛理由：{item.get('stage_two_note', '') or '待补充'}",
-                f"- 研究结论：{((item.get('payload') or {}).get('verdict') or 'watchlist')}",
-                f"- 快速判断：{((item.get('payload') or {}).get('quick_take') or '待补充')}",
-                f"- 报告路径：`{item.get('markdown_path', '')}`",
-            ]
-        )
+        recommendation_rank(item)
         for item in finalists
     ) or "- 没有进入精筛的候选。"
     return "\n".join(
@@ -1498,13 +1545,48 @@ def render_screening_markdown(
             f"- 市场：`{market}`",
             f"- 生成时间：`{datetime.now(UTC).isoformat()}`",
             "",
+            "## 推荐摘要",
+            screening_summary(theme=theme, finalists=finalists),
+            "",
             "## 初筛 / 二筛候选池",
             stage_one_block,
             "",
             "## 精筛推荐",
             finalist_block,
+            "",
+            "## 本轮未晋级名单",
+            rejected_bucket(stage_one_candidates),
         ]
     )
+
+
+def screening_summary(*, theme: str, finalists: list[dict[str, Any]]) -> str:
+    if not finalists:
+        return f"`{theme}` 这条主线本轮没有筛出足够强的深研候选。"
+    top = finalists[0]
+    payload = top.get("payload") or {}
+    return (
+        f"本轮围绕 `{theme}` 先做公开网页初筛，再做二筛委员会压缩，最后对最值得投入时间的标的做完整多 agent 深研。"
+        f" 当前最优先继续跟的名字是 `{top.get('company_name')}`，因为它在 why-now、screen score 和最终 memo 一致性上最稳。"
+        f" 最终 verdict 为 `{payload.get('verdict', 'watchlist')}`，说明这套流程更偏严谨研究，而不是无脑抬高结论。"
+    )
+
+
+def rank_label(item: dict[str, Any]) -> str:
+    score = int(item.get("screen_score") or 0)
+    if score >= 85:
+        return "A"
+    if score >= 72:
+        return "B"
+    return "C"
+
+
+def summarize_bull_bear(payload: dict[str, Any]) -> str:
+    bull = list(payload.get("bull_case") or [])
+    bear = list(payload.get("bear_case") or [])
+    bull_text = bull[0] if bull else "bull case still needs work"
+    bear_text = bear[0] if bear else "bear case still needs work"
+    return f"bull: {bull_text} | bear: {bear_text}"
 
 
 def build_market_analyst_prompt(max_results: int, max_fetches: int) -> str:

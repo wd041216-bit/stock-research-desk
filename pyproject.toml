@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stock-research-desk"
-version = "0.3.0"
+version = "0.3.1"
 description = "Cloud-only multi-agent stock research CLI with evidence ranking, investor councils, and scenario analysis."
 readme = "README.md"
 requires-python = ">=3.11"

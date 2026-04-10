@@ -1,9 +1,9 @@
 {
   "schema_version": 2,
   "status": "active",
-  "current_item_id": null,
-  "next_action": "No safe pending work found. Stop only after recording `no_safe_work` or a more specific stop reason.",
-  "last_scan_at": "2026-04-10T08:18:19+00:00",
+  "current_item_id": "plan-decomposition-b7d33048a3",
+  "next_action": "Execute the planned step: Add sector-specific query planning for sparse themes beyond BCI.",
+  "last_scan_at": "2026-04-10T08:19:32+00:00",
   "last_checkpoint_at": "2026-04-10T08:19:31+00:00",
   "last_stop_reason": null,
   "last_completed_item_id": "plan-decomposition-bd41270d01",

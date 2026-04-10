@@ -15,6 +15,7 @@ Turn one ticker or one theme into a staged research process:
 Open the fastest public examples:
 
 - [Sample Research Memo](docs/sample-memo.md)
+- [Case Study: SaiTeng](docs/case-study-saiteng.md)
 - [Sample Screening Summary](docs/sample-screening.md)
 - [CLI Workflow](docs/cli-workflow.md)
 - [Codex Skill Mode](docs/codex-skill.md)
@@ -76,6 +77,7 @@ This repo stacks them into one debate-oriented workflow:
 If you want a quick feel for the output surface, open:
 
 - [Sample Research Memo](docs/sample-memo.md)
+- [Case Study: SaiTeng](docs/case-study-saiteng.md)
 - [Sample Screening Summary](docs/sample-screening.md)
 - [Email Briefing Modes](docs/email-briefings.md)
 - [Source Quality Model](docs/source-quality.md)
@@ -202,6 +204,7 @@ Email replies now come back in desk-style formats and attach the document bundle
 ## Public Samples
 
 - [Sample Research Memo](docs/sample-memo.md)
+- [Case Study: SaiTeng](docs/case-study-saiteng.md)
 - [Sample Screening Summary](docs/sample-screening.md)
 - [Email Briefing Modes](docs/email-briefings.md)
 - [Source Quality Model](docs/source-quality.md)

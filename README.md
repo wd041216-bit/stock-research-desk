@@ -4,13 +4,20 @@
 
 A cloud-only multi-agent equity research desk for single-name deep dives, theme screening, recurring watchlists, and bilingual document delivery.
 
-`stock-research-desk` is built around four operator workflows:
+Turn one ticker or one theme into a staged research process:
 
 - deep research for one stock
 - theme / sector screening with initial filter, second filter, and finalist deep dives
 - recurring watchlist analysis on a fixed cadence
 - email-driven interaction through a mailbox like QQ Mail
 - an additive Codex-native operating mode with Codex web research and automation-ready watchlists
+
+Open the fastest public examples:
+
+- [Sample Research Memo](docs/sample-memo.md)
+- [Sample Screening Summary](docs/sample-screening.md)
+- [CLI Workflow](docs/cli-workflow.md)
+- [Codex Skill Mode](docs/codex-skill.md)
 
 The repo now supports two host modes:
 
@@ -23,6 +30,15 @@ In practice, that means you can use it in four ways:
 - give it a sector direction and let it narrow candidates before expensive deep work
 - treat your mailbox like a lightweight research command queue
 - add Codex as an extra operating layer without changing the original CLI flow
+
+## At A Glance
+
+| Need | Best mode | Output |
+| --- | --- | --- |
+| One stock, full debate-oriented memo | terminal CLI | zh/en DOCX + JSON |
+| Theme triage before expensive deep work | terminal CLI | screening DOCX + finalist memos |
+| Hands-off recurring refreshes | watchlist + mailbox | digest DOCX + refreshed memos |
+| Codex as planner and main brain | Codex skill | same document bundle, different host path |
 
 ## What It Is
 
@@ -38,6 +54,7 @@ It is built for the moment after an idea becomes interesting but before you trus
 - watchlist memory and recurring refresh cycles
 
 ![Memo preview](assets/memo-preview.svg)
+![Workflow map](assets/workflow-map.svg)
 
 ## Why It Feels Different
 
@@ -56,13 +73,11 @@ This repo stacks them into one debate-oriented workflow:
 - sector screening before expensive deep work
 - memory snapshots so repeat runs accumulate context instead of restarting cold
 
-If you want a quick feel for the output, open:
+If you want a quick feel for the output surface, open:
 
 - [Sample Research Memo](docs/sample-memo.md)
 - [Sample Screening Summary](docs/sample-screening.md)
 - [Email Briefing Modes](docs/email-briefings.md)
-- [CLI Workflow](docs/cli-workflow.md)
-- [Codex Skill Mode](docs/codex-skill.md)
 - [Source Quality Model](docs/source-quality.md)
 
 ## Why This Exists
@@ -96,6 +111,14 @@ It is intentionally narrow:
 - recurring watchlist refreshes with digest generation
 - separate Chinese and English DOCX deliverables for humans
 - JSON artifacts for follow-up automation
+
+## Why People Save Repos Like This
+
+- it is narrow enough to be believable
+- it exposes disagreement instead of hiding it
+- it treats screening and deep research as different budgets
+- it delivers separate Chinese and English documents instead of only raw traces
+- it keeps a terminal-first path and an additive Codex path in the same repo
 
 ## 60-Second Start
 
@@ -175,6 +198,14 @@ Email replies now come back in desk-style formats and attach the document bundle
 - `Screening Brief`
 - `Morning Watchlist Brief`
 - `Weekly Watchlist Wrap`
+
+## Public Samples
+
+- [Sample Research Memo](docs/sample-memo.md)
+- [Sample Screening Summary](docs/sample-screening.md)
+- [Email Briefing Modes](docs/email-briefings.md)
+- [Source Quality Model](docs/source-quality.md)
+- [Memo Schema](docs/memo-schema.md)
 
 ## Why It Can Be Trusted More Than A Thin Wrapper
 

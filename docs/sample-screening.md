@@ -2,7 +2,9 @@
 
 This is the kind of screening artifact `stock-research-desk` writes into:
 
-- `~/Desktop/Stock Research Desk/screenings/*.md`
+- `~/Desktop/Stock Research Desk/screenings/*-zh.docx`
+- `~/Desktop/Stock Research Desk/screenings/*-en.docx`
+- `~/Desktop/Stock Research Desk/screenings/*.json`
 
 ## Theme
 

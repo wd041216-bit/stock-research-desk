@@ -1,0 +1,39 @@
+<svg width="1200" height="700" viewBox="0 0 1200 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="700" rx="28" fill="#08111D"/>
+  <rect x="28" y="28" width="1144" height="644" rx="24" fill="#0D1726" stroke="#1C2A3F"/>
+  <rect x="64" y="64" width="1072" height="52" rx="14" fill="#111F31"/>
+  <circle cx="92" cy="90" r="8" fill="#4ADE80"/>
+  <circle cx="120" cy="90" r="8" fill="#FBBF24"/>
+  <circle cx="148" cy="90" r="8" fill="#FB7185"/>
+  <text x="182" y="96" fill="#D6E2F1" font-family="SFMono-Regular, Menlo, monospace" font-size="22">stock-research-desk / memo output</text>
+
+  <rect x="64" y="144" width="314" height="228" rx="18" fill="#0F1C2B" stroke="#223248"/>
+  <text x="88" y="182" fill="#9FB2C9" font-family="Inter, Arial, sans-serif" font-size="17">Quick Take</text>
+  <text x="88" y="220" fill="#EEF5FF" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Watchlist</text>
+  <text x="88" y="254" fill="#CBD7E6" font-family="Inter, Arial, sans-serif" font-size="18">Interesting structure,</text>
+  <text x="88" y="280" fill="#CBD7E6" font-family="Inter, Arial, sans-serif" font-size="18">not enough proof yet.</text>
+  <rect x="88" y="308" width="114" height="34" rx="17" fill="#18304C"/>
+  <text x="108" y="331" fill="#7DD3FC" font-family="Inter, Arial, sans-serif" font-size="15">medium confidence</text>
+
+  <rect x="402" y="144" width="356" height="228" rx="18" fill="#0F1C2B" stroke="#223248"/>
+  <text x="426" y="182" fill="#9FB2C9" font-family="Inter, Arial, sans-serif" font-size="17">Bull / Bear / Risks</text>
+  <text x="426" y="220" fill="#F8FBFF" font-family="Inter, Arial, sans-serif" font-size="18">• Structural demand tailwind</text>
+  <text x="426" y="252" fill="#F8FBFF" font-family="Inter, Arial, sans-serif" font-size="18">• Mix-shift still needs proof</text>
+  <text x="426" y="284" fill="#F8FBFF" font-family="Inter, Arial, sans-serif" font-size="18">• Customer concentration risk</text>
+  <text x="426" y="316" fill="#F8FBFF" font-family="Inter, Arial, sans-serif" font-size="18">• Capex timing still matters</text>
+
+  <rect x="782" y="144" width="354" height="228" rx="18" fill="#0F1C2B" stroke="#223248"/>
+  <text x="806" y="182" fill="#9FB2C9" font-family="Inter, Arial, sans-serif" font-size="17">Target Prices</text>
+  <text x="806" y="224" fill="#EEF5FF" font-family="Inter, Arial, sans-serif" font-size="20">Short term</text>
+  <text x="1048" y="224" text-anchor="end" fill="#7DD3FC" font-family="Inter, Arial, sans-serif" font-size="20">1-3 months</text>
+  <text x="806" y="258" fill="#EEF5FF" font-family="Inter, Arial, sans-serif" font-size="20">Medium term</text>
+  <text x="1048" y="258" text-anchor="end" fill="#C4B5FD" font-family="Inter, Arial, sans-serif" font-size="20">3-12 months</text>
+  <text x="806" y="292" fill="#EEF5FF" font-family="Inter, Arial, sans-serif" font-size="20">Long term</text>
+  <text x="1048" y="292" text-anchor="end" fill="#F9A8D4" font-family="Inter, Arial, sans-serif" font-size="20">12-36 months</text>
+
+  <rect x="64" y="404" width="1072" height="232" rx="18" fill="#0F1C2B" stroke="#223248"/>
+  <text x="88" y="442" fill="#9FB2C9" font-family="Inter, Arial, sans-serif" font-size="17">Workflow</text>
+  <text x="88" y="482" fill="#EEF5FF" font-family="Inter, Arial, sans-serif" font-size="20">Evidence ranking → Investor councils → MiroFish scenarios → Price committee</text>
+  <text x="88" y="522" fill="#CBD7E6" font-family="Inter, Arial, sans-serif" font-size="18">Terminal-first, cloud-only, multi-agent, and built for one-name deep work.</text>
+  <text x="88" y="566" fill="#8EA3BA" font-family="SFMono-Regular, Menlo, monospace" font-size="16">reports/2026-04-10-example.md</text>
+</svg>

@@ -9,9 +9,6 @@ description = "Cloud-only multi-agent stock research CLI with evidence ranking, 
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-authors = [
-  { name = "Da Wei" }
-]
 dependencies = [
   "ollama>=0.6.1"
 ]

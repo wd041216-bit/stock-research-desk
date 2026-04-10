@@ -6,6 +6,42 @@ Cloud-only multi-agent stock research for serious single-name work.
 
 `stock-research-desk` takes one stock, runs a layered research workflow through Ollama Cloud, ranks evidence quality, lets investor-style committees debate the thesis, simulates multiple futures, and writes a dense memo with short-, medium-, and long-term target prices.
 
+## What It Is
+
+This is a terminal-first research desk for one-name equity work.
+
+It is built for the moment after an idea becomes interesting but before you trust yourself to size it. Instead of giving you one smooth paragraph, it runs a staged process:
+
+- evidence-ranked market and company research
+- investor-style analyst personas
+- red-team challenge and disagreement capture
+- MiroFish-style future branches
+- explicit short-, medium-, and long-term target prices
+
+![Memo preview](assets/memo-preview.svg)
+
+## Why It Feels Different
+
+Most AI stock tools stop at one of these layers:
+
+- search aggregation
+- memo generation
+- sentiment scraping
+
+This repo stacks them into one debate-oriented workflow:
+
+- source ranking before synthesis
+- multi-agent passes instead of one-shot summary
+- committee debate before conclusion
+- scenario projection before target prices
+- memory snapshots so repeat runs accumulate context instead of restarting cold
+
+If you want a quick feel for the output, open:
+
+- [Sample Research Memo](docs/sample-memo.md)
+- [CLI Workflow](docs/cli-workflow.md)
+- [Source Quality Model](docs/source-quality.md)
+
 ## Why This Exists
 
 Most AI stock tools fail in one of two ways:
@@ -28,29 +64,6 @@ It is intentionally narrow:
 - no backtesting engine
 - no OpenClaw dependency
 - no local-model fallback
-
-## What The Workflow Does
-
-The CLI runs a multi-stage desk:
-
-1. `market_analyst`
-   Reads the cycle, market structure, China narrative, and valuation frame.
-2. `company_analyst`
-   Focuses on business quality, customers, financial signals, catalysts, and risks.
-3. `sentiment_simulator`
-   Simulates multiple participant views from public narrative flow.
-4. `comparison_analyst`
-   Builds the peer frame and checks whether the name is worth prioritizing.
-5. `committee_red_team`
-   Forces the breakpoints, weak links, and disconfirming evidence.
-6. `guru_council`
-   Records consensus, disagreement, and the real verification agenda.
-7. `mirofish_scenario_engine`
-   Projects bull / base / bear futures with time markers and triggers.
-8. `price_committee`
-   Produces short-, medium-, and long-term target prices with time horizons.
-
-Every run updates a local `memory_palace/` snapshot so the next pass can continue from prior bull / bear points, open questions, and recent evidence.
 
 ## 60-Second Start
 
@@ -80,6 +93,29 @@ The command writes:
 - `reports/<timestamp>-<ticker>.md`
 - `reports/<timestamp>-<ticker>.json`
 - `memory_palace/<ticker>.json`
+
+## Full Workflow
+
+The CLI runs a multi-stage desk:
+
+1. `market_analyst`
+   Reads the cycle, market structure, China narrative, and valuation frame.
+2. `company_analyst`
+   Focuses on business quality, customers, financial signals, catalysts, and risks.
+3. `sentiment_simulator`
+   Simulates multiple participant views from public narrative flow.
+4. `comparison_analyst`
+   Builds the peer frame and checks whether the name is worth prioritizing.
+5. `committee_red_team`
+   Forces the breakpoints, weak links, and disconfirming evidence.
+6. `guru_council`
+   Records consensus, disagreement, and the real verification agenda.
+7. `mirofish_scenario_engine`
+   Projects bull / base / bear futures with time markers and triggers.
+8. `price_committee`
+   Produces short-, medium-, and long-term target prices with time horizons.
+
+Every run updates a local `memory_palace/` snapshot so the next pass can continue from prior bull / bear points, open questions, and recent evidence.
 
 ## Example Output Shape
 
@@ -129,6 +165,7 @@ This does not magically make public web data clean. It does make the workflow mo
 
 ## Docs
 
+- [Sample Research Memo](docs/sample-memo.md)
 - [CLI Workflow](docs/cli-workflow.md)
 - [Source Quality Model](docs/source-quality.md)
 - [Memo Schema](docs/memo-schema.md)

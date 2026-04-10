@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import email
+import imaplib
 import json
 import os
 import re
+import smtplib
 import sys
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from email.header import decode_header, make_header
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -62,7 +67,20 @@ class WorkspacePaths:
     reports_dir: Path
     memory_dir: Path
     screens_dir: Path
+    digests_dir: Path
     watchlist_path: Path
+    email_state_path: Path
+
+
+@dataclass(slots=True)
+class EmailConfig:
+    address: str
+    app_password: str
+    imap_host: str
+    imap_port: int
+    smtp_host: str
+    smtp_port: int
+    reply_to: str
 
 
 @dataclass(slots=True)
@@ -96,7 +114,11 @@ class MemoryContext:
 
 def main(argv: list[str] | None = None) -> None:
     raw_args = list(argv if argv is not None else sys.argv[1:])
-    if raw_args and raw_args[0] in {"research", "screen", "watchlist"}:
+    if not raw_args or raw_args[0] in {"-h", "--help"}:
+        parser = build_command_parser()
+        parser.parse_args(raw_args)
+        return
+    if raw_args and raw_args[0] in {"research", "screen", "watchlist", "email"}:
         parser = build_command_parser()
         args = parser.parse_args(raw_args)
         dispatch_command(args)
@@ -146,6 +168,17 @@ def build_command_parser() -> argparse.ArgumentParser:
     watchlist_run_due = watchlist_subparsers.add_parser("run-due", help="Run due watchlist analyses and refresh their schedules.")
     watchlist_run_due.add_argument("--limit", type=int, default=10, help="Max due entries to process in one run.")
     add_runtime_args(watchlist_run_due)
+
+    email_parser = subparsers.add_parser("email", help="Process research commands from email and reply with results.")
+    email_subparsers = email_parser.add_subparsers(dest="email_command", required=True)
+
+    email_run_once = email_subparsers.add_parser("run-once", help="Poll inbox once, execute supported commands, and send replies.")
+    email_run_once.add_argument("--limit", type=int, default=5, help="Max unread messages to process.")
+    add_runtime_args(email_run_once)
+
+    email_send_test = email_subparsers.add_parser("send-test", help="Send a connectivity test email.")
+    email_send_test.add_argument("--to", required=True, help="Recipient email address.")
+    add_runtime_args(email_send_test, include_model=False)
 
     return parser
 
@@ -257,6 +290,35 @@ def dispatch_command(args: argparse.Namespace) -> None:
             print(f"Processed {result['processed']} due entries.")
             for item in result["artifacts"]:
                 print(f"- {item['identifier']}: {item['markdown_path']}")
+            if result.get("digest_path"):
+                print(f"Saved watchlist digest to: {result['digest_path']}")
+            return
+
+    if args.command == "email":
+        paths = resolve_workspace_paths(args.output_dir)
+        email_config = load_email_config()
+        if args.email_command == "send-test":
+            send_email_reply(
+                config=email_config,
+                to_address=args.to,
+                subject="Stock Research Desk test",
+                body="QQ mailbox integration is working.",
+            )
+            print(f"Sent test email to: {args.to}")
+            return
+        if args.email_command == "run-once":
+            config = load_config(
+                model=args.model,
+                think=args.think,
+                max_results=args.max_results,
+                max_fetches=args.max_fetches,
+                timeout_seconds=args.timeout_seconds,
+                output_dir=args.output_dir,
+            )
+            result = process_email_inbox(paths=paths, email_config=email_config, config=config, limit=args.limit, verbose=True)
+            print(f"Processed {result['processed']} email commands.")
+            for item in result["replies"]:
+                print(f"- replied to {item['from']} for {item['command']}")
             return
 
     raise RuntimeError(f"Unsupported command: {args.command}")
@@ -276,16 +338,21 @@ def resolve_workspace_paths(output_dir: str) -> WorkspacePaths:
     reports_dir = output_path.resolve() if output_path.is_absolute() else (workspace_dir / output_path).resolve()
     memory_dir = (workspace_dir / "memory_palace").resolve()
     screens_dir = (workspace_dir / "screenings").resolve()
+    digests_dir = (workspace_dir / "digests").resolve()
     watchlist_path = (workspace_dir / "watchlist.json").resolve()
+    email_state_path = (workspace_dir / "email_state.json").resolve()
     reports_dir.mkdir(parents=True, exist_ok=True)
     memory_dir.mkdir(parents=True, exist_ok=True)
     screens_dir.mkdir(parents=True, exist_ok=True)
+    digests_dir.mkdir(parents=True, exist_ok=True)
     return WorkspacePaths(
         workspace_dir=workspace_dir,
         reports_dir=reports_dir,
         memory_dir=memory_dir,
         screens_dir=screens_dir,
+        digests_dir=digests_dir,
         watchlist_path=watchlist_path,
+        email_state_path=email_state_path,
     )
 
 
@@ -952,9 +1019,22 @@ def run_due_watchlist(
         entry["last_report_path"] = artifact["markdown_path"]
         entry["next_run_at"] = (now.timestamp() + int(entry.get("interval_hours", 24)) * 3600)
         entry["next_run_at"] = datetime.fromtimestamp(entry["next_run_at"], UTC).isoformat()
-        artifacts.append({"identifier": entry["identifier"], "markdown_path": artifact["markdown_path"]})
+        artifacts.append(
+            {
+                "identifier": entry["identifier"],
+                "markdown_path": artifact["markdown_path"],
+                "verdict": (artifact.get("payload") or {}).get("verdict", "watchlist"),
+                "quick_take": (artifact.get("payload") or {}).get("quick_take", ""),
+            }
+        )
     save_watchlist(paths, entries)
-    return {"processed": processed, "artifacts": artifacts}
+    digest_path = ""
+    if artifacts:
+        timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+        digest_path_obj = paths.digests_dir / f"{timestamp}-watchlist-digest.md"
+        digest_path_obj.write_text(render_watchlist_digest_markdown(artifacts), encoding="utf-8")
+        digest_path = str(digest_path_obj)
+    return {"processed": processed, "artifacts": artifacts, "digest_path": digest_path}
 
 
 def load_watchlist(paths: WorkspacePaths) -> list[dict[str, Any]]:
@@ -969,6 +1049,342 @@ def load_watchlist(paths: WorkspacePaths) -> list[dict[str, Any]]:
 
 def save_watchlist(paths: WorkspacePaths, entries: list[dict[str, Any]]) -> None:
     paths.watchlist_path.write_text(json.dumps(entries, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def render_watchlist_digest_markdown(artifacts: list[dict[str, str]]) -> str:
+    lines = [
+        "# Watchlist Digest",
+        "",
+        f"- Generated at: `{datetime.now(UTC).isoformat()}`",
+        "",
+    ]
+    for item in artifacts:
+        lines.extend(
+            [
+                f"## {item['identifier']}",
+                f"- Verdict: `{item.get('verdict', 'watchlist')}`",
+                f"- Quick take: {item.get('quick_take', '') or 'n/a'}",
+                f"- Report: `{item.get('markdown_path', '')}`",
+                "",
+            ]
+        )
+    return "\n".join(lines)
+
+
+def load_email_state(paths: WorkspacePaths) -> dict[str, Any]:
+    if not paths.email_state_path.exists():
+        return {"processed_message_ids": []}
+    try:
+        payload = json.loads(paths.email_state_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"processed_message_ids": []}
+    if not isinstance(payload, dict):
+        return {"processed_message_ids": []}
+    payload.setdefault("processed_message_ids", [])
+    return payload
+
+
+def save_email_state(paths: WorkspacePaths, state: dict[str, Any]) -> None:
+    paths.email_state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_email_config() -> EmailConfig:
+    address = os.getenv("STOCK_RESEARCH_DESK_EMAIL_ADDRESS", "").strip()
+    app_password = os.getenv("STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD", "").strip()
+    provider = os.getenv("STOCK_RESEARCH_DESK_EMAIL_PROVIDER", "qq").strip().lower()
+    if provider == "qq":
+        imap_host = os.getenv("STOCK_RESEARCH_DESK_EMAIL_IMAP_HOST", "imap.qq.com").strip()
+        smtp_host = os.getenv("STOCK_RESEARCH_DESK_EMAIL_SMTP_HOST", "smtp.qq.com").strip()
+        imap_port = int(os.getenv("STOCK_RESEARCH_DESK_EMAIL_IMAP_PORT", "993"))
+        smtp_port = int(os.getenv("STOCK_RESEARCH_DESK_EMAIL_SMTP_PORT", "465"))
+    else:
+        imap_host = os.getenv("STOCK_RESEARCH_DESK_EMAIL_IMAP_HOST", "").strip()
+        smtp_host = os.getenv("STOCK_RESEARCH_DESK_EMAIL_SMTP_HOST", "").strip()
+        imap_port = int(os.getenv("STOCK_RESEARCH_DESK_EMAIL_IMAP_PORT", "993"))
+        smtp_port = int(os.getenv("STOCK_RESEARCH_DESK_EMAIL_SMTP_PORT", "465"))
+    if not address or not app_password or not imap_host or not smtp_host:
+        raise RuntimeError(
+            "Email integration requires STOCK_RESEARCH_DESK_EMAIL_ADDRESS, "
+            "STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD, and valid IMAP/SMTP settings."
+        )
+    return EmailConfig(
+        address=address,
+        app_password=app_password,
+        imap_host=imap_host,
+        imap_port=imap_port,
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
+        reply_to=os.getenv("STOCK_RESEARCH_DESK_EMAIL_REPLY_TO", address).strip() or address,
+    )
+
+
+def process_email_inbox(
+    *,
+    paths: WorkspacePaths,
+    email_config: EmailConfig,
+    config: StockResearchConfig,
+    limit: int,
+    verbose: bool = False,
+) -> dict[str, Any]:
+    state = load_email_state(paths)
+    processed_ids = set(state.get("processed_message_ids", []))
+    replies: list[dict[str, str]] = []
+    processed = 0
+    with imaplib.IMAP4_SSL(email_config.imap_host, email_config.imap_port) as mailbox:
+        mailbox.login(email_config.address, email_config.app_password)
+        mailbox.select("INBOX")
+        status, data = mailbox.search(None, "UNSEEN")
+        if status != "OK":
+            raise RuntimeError("Failed to search inbox.")
+        message_nums = list(reversed((data[0] or b"").split()))[:limit]
+        for num in message_nums:
+            status, msg_data = mailbox.fetch(num, "(RFC822)")
+            if status != "OK" or not msg_data:
+                continue
+            raw = msg_data[0][1]
+            message = email.message_from_bytes(raw)
+            message_id = str(message.get("Message-ID") or num.decode())
+            if message_id in processed_ids:
+                continue
+            from_address = email.utils.parseaddr(message.get("From") or "")[1]
+            subject = decode_mime_header(message.get("Subject") or "")
+            body = extract_email_plain_text(message)
+            command = parse_email_command(subject=subject, body=body)
+            if not command:
+                reply_body = (
+                    "Stock Research Desk did not recognize your command.\n\n"
+                    "Supported subjects:\n"
+                    "- research: 赛腾股份 | 603283.SH | CN | 中国故事\n"
+                    "- screen: 中国机器人 | 3 | CN | 中国故事\n"
+                    "- watchlist add: 赛腾股份 | 603283.SH | 7d | CN | 中国故事\n"
+                    "- watchlist list\n"
+                    "- watchlist run-due\n"
+                )
+                send_email_reply(
+                    config=email_config,
+                    to_address=from_address,
+                    subject=f"Re: {subject}",
+                    body=reply_body,
+                )
+                processed_ids.add(message_id)
+                replies.append({"from": from_address, "command": "unknown"})
+                processed += 1
+                continue
+            reply = execute_email_command(paths=paths, config=config, command=command, verbose=verbose)
+            send_email_reply(
+                config=email_config,
+                to_address=from_address,
+                subject=f"Re: {subject}",
+                body=reply["body"],
+                attachments=reply.get("attachments", []),
+            )
+            processed_ids.add(message_id)
+            replies.append({"from": from_address, "command": command["kind"]})
+            processed += 1
+        mailbox.close()
+    save_email_state(paths, {"processed_message_ids": list(processed_ids)[-200:]})
+    return {"processed": processed, "replies": replies}
+
+
+def decode_mime_header(value: str) -> str:
+    return str(make_header(decode_header(value))).strip()
+
+
+def extract_email_plain_text(message: email.message.Message) -> str:
+    if message.is_multipart():
+        parts: list[str] = []
+        for part in message.walk():
+            if part.get_content_type() != "text/plain":
+                continue
+            payload = part.get_payload(decode=True)
+            charset = part.get_content_charset() or "utf-8"
+            if payload:
+                parts.append(payload.decode(charset, errors="replace"))
+        return "\n".join(parts).strip()
+    payload = message.get_payload(decode=True)
+    if payload is None:
+        return str(message.get_payload() or "").strip()
+    charset = message.get_content_charset() or "utf-8"
+    return payload.decode(charset, errors="replace").strip()
+
+
+def parse_email_command(*, subject: str, body: str) -> dict[str, Any] | None:
+    command_line = (subject or "").strip()
+    if not command_line:
+        for line in body.splitlines():
+            if line.strip():
+                command_line = line.strip()
+                break
+    lowered = command_line.lower()
+    if lowered.startswith("research:"):
+        parts = [part.strip() for part in command_line.split(":", 1)[1].split("|")]
+        stock_name = parts[0] if parts else ""
+        return {
+            "kind": "research",
+            "stock_name": stock_name,
+            "ticker": parts[1] if len(parts) > 1 else "",
+            "market": parts[2] if len(parts) > 2 and parts[2] else "CN",
+            "angle": parts[3] if len(parts) > 3 else "",
+        } if stock_name else None
+    if lowered.startswith("screen:"):
+        parts = [part.strip() for part in command_line.split(":", 1)[1].split("|")]
+        theme = parts[0] if parts else ""
+        return {
+            "kind": "screen",
+            "theme": theme,
+            "count": int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 3,
+            "market": parts[2] if len(parts) > 2 and parts[2] else "CN",
+            "angle": parts[3] if len(parts) > 3 else "",
+        } if theme else None
+    if lowered.startswith("watchlist add:"):
+        parts = [part.strip() for part in command_line.split(":", 1)[1].split("|")]
+        stock_name = parts[0] if parts else ""
+        return {
+            "kind": "watchlist_add",
+            "stock_name": stock_name,
+            "ticker": parts[1] if len(parts) > 1 else "",
+            "interval": parts[2] if len(parts) > 2 and parts[2] else "7d",
+            "market": parts[3] if len(parts) > 3 and parts[3] else "CN",
+            "angle": parts[4] if len(parts) > 4 else "",
+        } if stock_name else None
+    if lowered.startswith("watchlist list"):
+        return {"kind": "watchlist_list"}
+    if lowered.startswith("watchlist run-due"):
+        return {"kind": "watchlist_run_due"}
+    return None
+
+
+def execute_email_command(
+    *,
+    paths: WorkspacePaths,
+    config: StockResearchConfig,
+    command: dict[str, Any],
+    verbose: bool = False,
+) -> dict[str, Any]:
+    kind = command["kind"]
+    if kind == "research":
+        artifact = run_stock_research(
+            stock_name=command["stock_name"],
+            ticker=command.get("ticker") or None,
+            market=command.get("market") or "CN",
+            angle=command.get("angle") or "",
+            config=config,
+            verbose=verbose,
+        )
+        payload = artifact.get("payload", {})
+        body = render_email_research_reply(payload, artifact["markdown_path"])
+        return {"body": body, "attachments": [artifact["markdown_path"], artifact["json_path"]]}
+    if kind == "screen":
+        artifact = run_screening_pipeline(
+            theme=command["theme"],
+            desired_count=int(command.get("count") or 3),
+            market=command.get("market") or "CN",
+            angle=command.get("angle") or "",
+            seed_tickers=[],
+            config=config,
+            verbose=verbose,
+        )
+        body = render_email_screen_reply(theme=command["theme"], payload=artifact["payload"], markdown_path=artifact["markdown_path"])
+        attachments = [artifact["markdown_path"], artifact["json_path"], *artifact.get("report_paths", [])]
+        return {"body": body, "attachments": attachments}
+    if kind == "watchlist_add":
+        entry = add_watchlist_entry(
+            paths=paths,
+            stock_name=command["stock_name"],
+            ticker=command.get("ticker") or None,
+            market=command.get("market") or "CN",
+            angle=command.get("angle") or "",
+            interval_spec=command.get("interval") or "7d",
+        )
+        return {
+            "body": (
+                f"Watchlist entry added.\n\n"
+                f"- Stock: {entry['stock_name']}\n"
+                f"- Ticker: {entry.get('ticker') or 'n/a'}\n"
+                f"- Interval: {entry['interval_spec']}\n"
+                f"- Next run: {entry['next_run_at']}\n"
+            ),
+            "attachments": [],
+        }
+    if kind == "watchlist_list":
+        entries = load_watchlist(paths)
+        body = "Current watchlist:\n\n" + ("\n".join(
+            f"- {entry.get('ticker') or entry.get('stock_name')} | interval={entry.get('interval_spec')} | next={entry.get('next_run_at')}"
+            for entry in entries
+        ) if entries else "- empty")
+        return {"body": body, "attachments": [str(paths.watchlist_path)] if paths.watchlist_path.exists() else []}
+    if kind == "watchlist_run_due":
+        result = run_due_watchlist(paths=paths, config=config, limit=10, verbose=verbose)
+        body = f"Processed {result['processed']} due watchlist entries.\n"
+        if result.get("digest_path"):
+            body += f"\nDigest: {result['digest_path']}\n"
+        for item in result["artifacts"]:
+            body += f"- {item['identifier']}: {item['markdown_path']}\n"
+        attachments = [result["digest_path"]] if result.get("digest_path") else []
+        attachments.extend(item["markdown_path"] for item in result["artifacts"])
+        return {"body": body, "attachments": attachments}
+    raise RuntimeError(f"Unsupported email command: {kind}")
+
+
+def render_email_research_reply(payload: dict[str, Any], markdown_path: str) -> str:
+    targets = payload.get("target_prices") or {}
+    lines = [
+        f"Research completed for {payload.get('company_name') or payload.get('ticker')}.",
+        "",
+        f"- Verdict: {payload.get('verdict', 'watchlist')}",
+        f"- Confidence: {payload.get('confidence', 'medium')}",
+        f"- Quick take: {payload.get('quick_take', '')}",
+        "",
+        "Target prices:",
+    ]
+    for key, label in (("short_term", "Short"), ("medium_term", "Medium"), ("long_term", "Long")):
+        item = targets.get(key) or {}
+        lines.append(f"- {label}: {item.get('price', 'n/a')} | {item.get('horizon', 'n/a')} | {item.get('thesis', '')}")
+    lines.extend(["", f"Attached memo: {markdown_path}"])
+    return "\n".join(lines)
+
+
+def render_email_screen_reply(*, theme: str, payload: dict[str, Any], markdown_path: str) -> str:
+    finalists = payload.get("finalists") or []
+    lines = [
+        f"Screening completed for theme: {theme}",
+        "",
+        f"Finalists: {len(finalists)}",
+    ]
+    for item in finalists:
+        report_payload = item.get("payload") or {}
+        lines.append(
+            f"- {item.get('company_name')} {item.get('ticker', '')} | screen={item.get('screen_score')} | "
+            f"verdict={report_payload.get('verdict', 'watchlist')} | {report_payload.get('quick_take', '')}"
+        )
+    lines.extend(["", f"Attached screening summary: {markdown_path}"])
+    return "\n".join(lines)
+
+
+def send_email_reply(
+    *,
+    config: EmailConfig,
+    to_address: str,
+    subject: str,
+    body: str,
+    attachments: list[str] | None = None,
+) -> None:
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = config.reply_to
+    message["To"] = to_address
+    message.set_content(body)
+    for attachment in attachments or []:
+        path = Path(attachment)
+        if not path.exists() or not path.is_file():
+            continue
+        data = path.read_bytes()
+        subtype = "json" if path.suffix == ".json" else "markdown" if path.suffix == ".md" else "octet-stream"
+        maintype = "application" if path.suffix in {".json", ".md"} else "application"
+        message.add_attachment(data, maintype=maintype, subtype=subtype, filename=path.name)
+    with smtplib.SMTP_SSL(config.smtp_host, config.smtp_port) as server:
+        server.login(config.address, config.app_password)
+        server.send_message(message)
 
 
 def build_agent_user_prompt(

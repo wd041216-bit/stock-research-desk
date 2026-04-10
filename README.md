@@ -9,6 +9,7 @@ Cloud-only multi-agent stock research for serious single-name work.
 - deep research for one stock
 - theme / sector screening with initial filter, second filter, and finalist deep dives
 - recurring watchlist analysis on a fixed cadence
+- email-driven interaction through a mailbox like QQ Mail
 
 Everything still stays terminal-first and cloud-only through Ollama Cloud.
 
@@ -122,6 +123,22 @@ research-stock watchlist add 赛腾股份 --ticker 603283.SH --market CN --angle
 research-stock watchlist run-due
 ```
 
+Enable mailbox interaction:
+
+```bash
+export STOCK_RESEARCH_DESK_EMAIL_ADDRESS="your_qq_mail@qq.com"
+export STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD="your_qq_authorization_code"
+research-stock email run-once
+```
+
+Supported email subjects:
+
+- `research: 赛腾股份 | 603283.SH | CN | 中国故事`
+- `screen: 中国机器人 | 3 | CN | 中国故事`
+- `watchlist add: 赛腾股份 | 603283.SH | 7d | CN | 中国故事`
+- `watchlist list`
+- `watchlist run-due`
+
 ## Full Workflow
 
 The single-name CLI runs a multi-stage desk:
@@ -153,6 +170,15 @@ For theme screening, the product now uses three layers:
    A stricter committee picks the few names worth expensive deep work.
 3. finalist deep research
    The existing multi-agent memo process runs on each finalist.
+
+For recurring tracking, the product now also maintains:
+
+1. watchlist storage
+   Saves cadence, angle, next-run time, and last report path.
+2. digest generation
+   Each due run can emit a watchlist digest into the desktop workspace.
+3. mailbox control
+   You can trigger research, screening, and watchlist workflows by email.
 
 ## Example Output Shape
 
@@ -188,6 +214,13 @@ Key variables:
 | `STOCK_RESEARCH_DESK_TIMEOUT_SECONDS` | `45` | per-call timeout |
 | `STOCK_RESEARCH_DESK_OLLAMA_HOST` | `https://ollama.com` | cloud host |
 | `STOCK_RESEARCH_DESK_OUTPUT_DIR` | `reports` | report directory under the desktop workspace |
+| `STOCK_RESEARCH_DESK_EMAIL_PROVIDER` | `qq` | mailbox preset |
+| `STOCK_RESEARCH_DESK_EMAIL_ADDRESS` | optional | inbound / outbound mailbox |
+| `STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD` | optional | SMTP/IMAP authorization code |
+| `STOCK_RESEARCH_DESK_EMAIL_IMAP_HOST` | `imap.qq.com` | IMAP host |
+| `STOCK_RESEARCH_DESK_EMAIL_IMAP_PORT` | `993` | IMAP SSL port |
+| `STOCK_RESEARCH_DESK_EMAIL_SMTP_HOST` | `smtp.qq.com` | SMTP host |
+| `STOCK_RESEARCH_DESK_EMAIL_SMTP_PORT` | `465` | SMTP SSL port |
 
 ## Evidence Quality Rules
 

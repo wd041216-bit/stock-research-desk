@@ -12,6 +12,7 @@ from stock_research_desk.stock_cli import (
     build_red_team_fallback,
     default_workspace_home,
     load_watchlist,
+    parse_email_command,
     normalize_screen_candidates,
     parse_interval_hours,
     build_sentiment_simulator_prompt,
@@ -50,6 +51,7 @@ from stock_research_desk.stock_cli import (
     remove_watchlist_entry,
     resolve_workspace_paths,
     run_due_watchlist,
+    render_watchlist_digest_markdown,
 )
 
 
@@ -658,6 +660,40 @@ def test_run_due_watchlist_updates_next_run(monkeypatch: pytest.MonkeyPatch, tmp
     assert result["processed"] == 1
     assert updated[0]["last_report_path"] == "/tmp/report.md"
     assert updated[0]["next_run_at"] != "2026-04-01T00:00:00+00:00"
+    assert result["digest_path"].endswith(".md")
+
+
+def test_render_watchlist_digest_markdown_includes_verdict_and_path() -> None:
+    markdown = render_watchlist_digest_markdown(
+        [
+            {
+                "identifier": "603283-sh",
+                "markdown_path": "/tmp/report.md",
+                "verdict": "watchlist",
+                "quick_take": "仍需继续验证订单质量。",
+            }
+        ]
+    )
+    assert "# Watchlist Digest" in markdown
+    assert "603283-sh" in markdown
+    assert "/tmp/report.md" in markdown
+
+
+def test_parse_email_command_supports_research_screen_and_watchlist() -> None:
+    research = parse_email_command(subject="research: 赛腾股份 | 603283.SH | CN | 中国故事", body="")
+    screen = parse_email_command(subject="screen: 中国机器人 | 3 | CN | 中国故事", body="")
+    watchlist = parse_email_command(subject="watchlist add: 赛腾股份 | 603283.SH | 7d | CN | 中国故事", body="")
+    assert research is not None and research["kind"] == "research"
+    assert research["ticker"] == "603283.SH"
+    assert screen is not None and screen["kind"] == "screen"
+    assert screen["count"] == 3
+    assert watchlist is not None and watchlist["kind"] == "watchlist_add"
+    assert watchlist["interval"] == "7d"
+
+
+def test_parse_email_command_supports_watchlist_short_commands() -> None:
+    assert parse_email_command(subject="watchlist list", body="") == {"kind": "watchlist_list"}
+    assert parse_email_command(subject="watchlist run-due", body="") == {"kind": "watchlist_run_due"}
 
 
 def test_extract_target_prices_from_text_reads_price_horizon_and_thesis() -> None:

@@ -42,6 +42,35 @@ Each watchlist item stores:
 - next run time
 - latest generated report path
 
+When due entries are processed, the desk also writes:
+
+- `~/Desktop/Stock Research Desk/digests/*-watchlist-digest.md`
+
+## Email Control
+
+QQ Mail works with standard IMAP + SMTP authorization codes.
+
+Example:
+
+```bash
+research-stock email run-once
+```
+
+Supported subject formats:
+
+- `research: 赛腾股份 | 603283.SH | CN | 中国故事`
+- `screen: 中国机器人 | 3 | CN | 中国故事`
+- `watchlist add: 赛腾股份 | 603283.SH | 7d | CN | 中国故事`
+- `watchlist list`
+- `watchlist run-due`
+
+The desk will:
+
+1. poll unread messages
+2. parse supported commands
+3. execute the workflow locally
+4. reply with a summary and attach the generated memo, screening summary, or digest
+
 ## What Happens
 
 1. The CLI loads prior memory from `memory_palace/` if it exists.

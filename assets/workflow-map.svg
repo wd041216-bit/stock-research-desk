@@ -1,37 +1,50 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" fill="none">
-  <rect width="1200" height="420" rx="28" fill="#0B1020"/>
-  <rect x="24" y="24" width="1152" height="372" rx="24" fill="#11182C" stroke="#24304D"/>
-  <text x="60" y="86" fill="#F7F9FC" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700">Stock Research Desk Workflow</text>
-  <text x="60" y="118" fill="#95A3C3" font-family="Arial, Helvetica, sans-serif" font-size="18">One theme or one stock flows through screening, debate, scenarios, and document delivery.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none">
+  <rect width="1200" height="520" rx="30" fill="#08111F"/>
+  <rect x="34" y="34" width="1132" height="452" rx="28" fill="#0C1526" stroke="#27384F" stroke-width="2"/>
+  <text x="70" y="96" fill="#F8FAFC" font-family="Helvetica, Arial, sans-serif" font-size="42" font-weight="800">Workflow Map</text>
+  <text x="70" y="136" fill="#AFC1DA" font-family="Helvetica, Arial, sans-serif" font-size="22">A stock or theme moves through evidence, debate, scenarios, and one clean final document.</text>
 
-  <rect x="60" y="160" width="200" height="140" rx="20" fill="#17223A" stroke="#314160"/>
-  <text x="86" y="202" fill="#EAF0FF" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Input</text>
-  <text x="86" y="236" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">Ticker</text>
-  <text x="86" y="264" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">Theme</text>
-  <text x="86" y="292" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">Watchlist trigger</text>
+  <g transform="translate(70 190)">
+    <rect width="210" height="190" rx="24" fill="#111D33" stroke="#30445F" stroke-width="2"/>
+    <text x="28" y="48" fill="#EAF2FF" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="800">Input</text>
+    <text x="28" y="88" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="19">Ticker or theme</text>
+    <text x="28" y="122" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="19">Country hint</text>
+    <text x="28" y="156" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="19">Optional watchlist</text>
+  </g>
 
-  <rect x="312" y="160" width="240" height="140" rx="20" fill="#1A2744" stroke="#35507A"/>
-  <text x="338" y="202" fill="#EAF0FF" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Evidence Layer</text>
-  <text x="338" y="236" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">Web search first</text>
-  <text x="338" y="264" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">Source ranking</text>
-  <text x="338" y="292" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">Fallback on explicit errors</text>
+  <path d="M294 286H366" stroke="#6EA8FF" stroke-width="5" stroke-linecap="round"/>
+  <path d="M350 270L370 286L350 302" stroke="#6EA8FF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <rect x="604" y="160" width="254" height="140" rx="20" fill="#1B2E36" stroke="#2E5C66"/>
-  <text x="630" y="202" fill="#EAF0FF" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Council Layer</text>
-  <text x="630" y="236" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">Support round</text>
-  <text x="630" y="264" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">Red-team round</text>
-  <text x="630" y="292" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">Reconsideration round</text>
+  <g transform="translate(380 190)">
+    <rect width="230" height="190" rx="24" fill="#10263A" stroke="#2E5A75" stroke-width="2"/>
+    <text x="28" y="48" fill="#EAF2FF" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="800">Evidence</text>
+    <text x="28" y="88" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="19">Web search first</text>
+    <text x="28" y="122" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="19">Source scoring</text>
+    <text x="28" y="156" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="19">Noise filtering</text>
+  </g>
 
-  <rect x="910" y="160" width="230" height="140" rx="20" fill="#2A213E" stroke="#614587"/>
-  <text x="936" y="202" fill="#EAF0FF" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Delivery</text>
-  <text x="936" y="236" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">Chinese DOCX</text>
-  <text x="936" y="264" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">English DOCX</text>
-  <text x="936" y="292" fill="#B8C4DE" font-family="Arial, Helvetica, sans-serif" font-size="18">JSON + watchlist digest</text>
+  <path d="M624 286H696" stroke="#7DD3FC" stroke-width="5" stroke-linecap="round"/>
+  <path d="M680 270L700 286L680 302" stroke="#7DD3FC" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <path d="M260 230H312" stroke="#5F7EB8" stroke-width="4" stroke-linecap="round"/>
-  <path d="M552 230H604" stroke="#5F7EB8" stroke-width="4" stroke-linecap="round"/>
-  <path d="M858 230H910" stroke="#5F7EB8" stroke-width="4" stroke-linecap="round"/>
-  <circle cx="286" cy="230" r="5" fill="#8EACFF"/>
-  <circle cx="578" cy="230" r="5" fill="#8EACFF"/>
-  <circle cx="884" cy="230" r="5" fill="#8EACFF"/>
+  <g transform="translate(710 190)">
+    <rect width="220" height="190" rx="24" fill="#152238" stroke="#3D5173" stroke-width="2"/>
+    <text x="28" y="48" fill="#EAF2FF" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="800">Council</text>
+    <text x="28" y="88" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="19">Bull / bear cases</text>
+    <text x="28" y="122" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="19">Red-team dissent</text>
+    <text x="28" y="156" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="19">Scenario paths</text>
+  </g>
+
+  <path d="M944 286H1016" stroke="#C084FC" stroke-width="5" stroke-linecap="round"/>
+  <path d="M1000 270L1020 286L1000 302" stroke="#C084FC" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g transform="translate(1030 190)">
+    <rect width="100" height="190" rx="24" fill="#241B35" stroke="#6D55A2" stroke-width="2"/>
+    <text x="24" y="48" fill="#EAF2FF" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="800">Ship</text>
+    <text x="24" y="88" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="17">One</text>
+    <text x="24" y="114" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="17">DOCX</text>
+    <text x="24" y="148" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="17">Hidden</text>
+    <text x="24" y="174" fill="#BCCCE3" font-family="Helvetica, Arial, sans-serif" font-size="17">state</text>
+  </g>
+
+  <text x="70" y="444" fill="#7F95B3" font-family="Helvetica, Arial, sans-serif" font-size="20">stock-research-desk • cloud-only • no trading execution • no local-template fallback</text>
 </svg>

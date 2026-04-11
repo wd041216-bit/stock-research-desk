@@ -67,6 +67,25 @@ It runs:
 
 See [Sample Screening Summary](sample-screening.md).
 
+## Mailbox Surface
+
+![Briefing preview](../assets/briefing-preview.svg)
+
+The mailbox mode is useful when you want a lightweight command queue instead of a dashboard.
+
+Supported command families:
+
+- `research`
+- `screen`
+- `watchlist add`
+- `watchlist run-due`
+
+The desktop still receives the final memo document only. Queue state, memory, and debug payloads remain internal.
+
+## Social Preview
+
+![Project banner](../assets/banner.svg)
+
 ## Trust Boundaries
 
 This is a research assistant, not investment advice.

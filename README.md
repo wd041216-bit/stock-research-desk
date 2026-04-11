@@ -152,7 +152,15 @@ cp .env.example .env
 
 The CLI auto-loads the local `.env` file from the repo root, so you do not need to re-export `OLLAMA_API_KEY` every time.
 
-Run a first memo:
+Start the guided terminal flow:
+
+```bash
+./bin/research-stock
+```
+
+It will ask what you want to run, which market/country to use, and then either the stock name/code or the screening theme.
+
+Run a first memo directly:
 
 ```bash
 ./bin/research-stock 赛腾股份 中国

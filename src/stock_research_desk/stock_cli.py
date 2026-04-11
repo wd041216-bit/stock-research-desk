@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from email.header import decode_header, make_header
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
@@ -428,10 +428,74 @@ def load_local_env_file(path: Path | None = None) -> None:
         os.environ[key] = os.path.expanduser(value)
 
 
+def normalize_interactive_mode(value: str) -> str:
+    token = value.strip().lower()
+    research_tokens = {"1", "r", "research", "analyze", "analysis", "stock", "单股", "分析", "单股分析", "研究", "股票"}
+    screen_tokens = {"2", "s", "screen", "screening", "theme", "sector", "筛股", "筛选", "板块", "主题", "主题筛股"}
+    if not token or token in research_tokens:
+        return "research"
+    if token in screen_tokens:
+        return "screen"
+    raise ValueError("Please choose 1 for single-name research or 2 for theme screening.")
+
+
+def prompt_required(prompt_fn: Callable[[str], str], message: str, field_name: str) -> str:
+    for attempt in range(3):
+        try:
+            value = prompt_fn(message).strip()
+        except EOFError as exc:
+            raise SystemExit(f"缺少{field_name}，已取消。") from exc
+        if value:
+            return value
+        if attempt < 2:
+            print(f"{field_name}不能为空，请再输入一次。")
+    raise SystemExit(f"缺少{field_name}，已取消。")
+
+
+def build_interactive_command_args(prompt_fn: Callable[[str], str] = input) -> list[str]:
+    print("Stock Research Desk")
+    print("选择你要启动的工作流，然后我会把它交给现有研究链路执行。")
+    for attempt in range(3):
+        try:
+            raw_mode = prompt_fn("启动什么功能？[1=单股分析, 2=主题/板块筛股，默认 1]: ")
+        except EOFError as exc:
+            raise SystemExit("未选择工作流，已取消。") from exc
+        try:
+            mode = normalize_interactive_mode(raw_mode)
+            break
+        except ValueError as exc:
+            if attempt == 2:
+                raise SystemExit(str(exc)) from exc
+            print("我没有识别这个选择。请输入 1/分析，或 2/筛股。")
+    else:
+        raise SystemExit("未选择工作流，已取消。")
+
+    try:
+        market = prompt_fn("市场/国家？例如 中国 / 美国 / 香港 / CN / US / HK [中国]: ").strip() or "中国"
+    except EOFError as exc:
+        raise SystemExit("未输入市场/国家，已取消。") from exc
+    if mode == "research":
+        identifier = prompt_required(
+            prompt_fn,
+            "要分析哪只股票？可以输入公司名或代码，例如 赛腾股份 / 603283 / MSFT: ",
+            "股票名称或代码",
+        )
+        return ["research", identifier, market]
+
+    theme = prompt_required(
+        prompt_fn,
+        "要筛选什么板块/主题？例如 脑机接口 / 中国机器人 / AI infra: ",
+        "板块或主题",
+    )
+    return ["screen", theme, "--market", market]
+
+
 def main(argv: list[str] | None = None) -> None:
     load_local_env_file()
     raw_args = list(argv if argv is not None else sys.argv[1:])
-    if not raw_args or raw_args[0] in {"-h", "--help"}:
+    if not raw_args:
+        raw_args = build_interactive_command_args()
+    if raw_args[0] in {"-h", "--help"}:
         parser = build_command_parser()
         parser.parse_args(raw_args)
         return

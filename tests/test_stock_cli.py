@@ -13,6 +13,7 @@ from stock_research_desk.stock_cli import (
     add_watchlist_entry,
     agent_output_outline,
     build_cloud_model_chain,
+    build_interactive_command_args,
     build_screening_fallback_candidates,
     build_report_document_paths,
     build_seed_candidates,
@@ -57,6 +58,7 @@ from stock_research_desk.stock_cli import (
     load_config,
     load_local_env_file,
     load_memory_context,
+    main,
     merge_evidence,
     merge_screen_candidates,
     merge_seed_candidates,
@@ -217,6 +219,46 @@ def test_resolve_research_request_supports_plain_cn_code_and_country() -> None:
 def test_resolve_research_request_corrects_common_us_company_typo() -> None:
     request = resolve_research_request(identifier="mircosoft", ticker=None, market="", market_positional="美国")
     assert request == {"stock_name": "Microsoft", "ticker": "MSFT", "market": "US"}
+
+
+def test_build_interactive_command_args_builds_research_flow() -> None:
+    answers = iter(["分析", "中国", "赛腾股份"])
+
+    args = build_interactive_command_args(prompt_fn=lambda _: next(answers))
+
+    assert args == ["research", "赛腾股份", "中国"]
+
+
+def test_build_interactive_command_args_builds_screening_flow() -> None:
+    answers = iter(["筛股", "美国", "脑机接口"])
+
+    args = build_interactive_command_args(prompt_fn=lambda _: next(answers))
+
+    assert args == ["screen", "脑机接口", "--market", "美国"]
+
+
+def test_build_interactive_command_args_defaults_to_research_and_china_market() -> None:
+    answers = iter(["", "", "603283"])
+
+    args = build_interactive_command_args(prompt_fn=lambda _: next(answers))
+
+    assert args == ["research", "603283", "中国"]
+
+
+def test_main_without_args_routes_through_guided_launcher(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[object] = []
+    monkeypatch.setattr(
+        "stock_research_desk.stock_cli.build_interactive_command_args",
+        lambda: ["screen", "脑机接口", "--market", "US"],
+    )
+    monkeypatch.setattr("stock_research_desk.stock_cli.dispatch_command", lambda args: captured.append(args))
+
+    main([])
+
+    assert captured
+    assert getattr(captured[0], "command") == "screen"
+    assert getattr(captured[0], "theme") == "脑机接口"
+    assert getattr(captured[0], "market") == "US"
 
 
 def test_resolve_research_request_preserves_legacy_name_and_ticker_flow() -> None:

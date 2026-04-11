@@ -2,6 +2,22 @@
 
 `stock-research-desk` is intentionally terminal-first.
 
+## Guided Mode
+
+If you do not want to remember flags, start the guided launcher:
+
+```bash
+./bin/research-stock
+```
+
+It asks for:
+
+- the workflow: single-name research or theme / sector screening
+- the market or country, for example `中国`, `美国`, `CN`, or `US`
+- the stock name/code for research, or the sector/theme for screening
+
+The explicit commands below remain available when you already know exactly what you want to run.
+
 ## One Run
 
 ```bash

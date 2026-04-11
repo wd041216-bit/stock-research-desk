@@ -65,7 +65,15 @@ OLLAMA_API_KEY=your_ollama_cloud_api_key
 glm-5.1:cloud -> kimi-k2.5:cloud -> qwen3.5:cloud
 ```
 
-运行一份单股研究：
+最简单的交互式启动：
+
+```bash
+./bin/research-stock
+```
+
+它会依次询问你要启动“单股分析”还是“主题/板块筛股”、市场/国家，以及具体股票或板块主题。
+
+直接运行一份单股研究：
 
 ```bash
 ./bin/research-stock 赛腾股份 中国

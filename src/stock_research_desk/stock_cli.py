@@ -27,17 +27,29 @@ from .documents import (
     contains_cjk,
     write_bilingual_report_docx,
     write_bilingual_screening_docx,
-    write_bilingual_watchlist_digest_docx,
     write_report_docx,
     write_screening_docx,
-    write_watchlist_digest_docx,
 )
 from .persona_pack import get_persona_blend, render_persona_instruction
 from .runtime import parse_structured_response
 
 
 DEFAULT_HOST = "https://ollama.com"
-DEFAULT_MODEL = "kimi-k2.5:cloud"
+DEFAULT_MODEL = "glm-5.1:cloud"
+DEFAULT_CLOUD_MODEL_CHAIN = (
+    "glm-5.1:cloud",
+    "kimi-k2.5:cloud",
+    "qwen3.5:cloud",
+)
+MODEL_NAME_ALIASES = {
+    "qwen3.5:397b": "qwen3.5:cloud",
+    "qwen3.5:397b-cloud": "qwen3.5:cloud",
+    "qwen3.5": "qwen3.5:cloud",
+    "gemini-3-flash-preview": "gemini-3-flash-preview:cloud",
+    "glm-5.1": "glm-5.1:cloud",
+    "kimi-k2.5": "kimi-k2.5:cloud",
+}
+DEFAULT_RESEARCH_ANGLE = "综合 buy-side 研究"
 CROSS_VALIDATED_SEARCH_ROOT = Path(__file__).resolve().parents[3] / "tmp" / "cross-validated-search"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -58,6 +70,7 @@ DOMAIN_QUALITY_OVERRIDES: dict[str, int] = {
     "news.futunn.com": 72,
     "futunn.com": 72,
     "xueqiu.com": 70,
+    "ai.xueqiu.com": 32,
     "gg.cfi.cn": 58,
     "cfi.cn": 58,
     "lixinger.com": 64,
@@ -70,9 +83,149 @@ DOMAIN_QUALITY_OVERRIDES: dict[str, int] = {
 
 BLOCKED_SOURCE_DOMAINS = {
     "guba.eastmoney.com",
+    "ai.xueqiu.com",
 }
 
 MIN_SOURCE_QUALITY = 36
+SITE_CHROME_TOKENS = (
+    "标签添加class",
+    "新浪首页",
+    "新浪财经",
+    "同花顺F10",
+    "证券之星",
+    "中财网",
+    "理杏仁",
+    "股票频道",
+    "股吧",
+    "行情中心",
+    "自选股",
+    "财经首页",
+    "扫码",
+    "邮箱",
+    "导航",
+    "佛学",
+    "游戏",
+    "旅游",
+    "汽车",
+    "教育",
+    "时尚",
+    "女性",
+    "星座",
+    "健康",
+    "发现报告",
+    "看点 行情 量化",
+    "主板 必读 研报 新股",
+    "滚动新闻",
+    "金融e路通",
+    "展开全部",
+    "收起全部",
+    "读取中",
+    "证券资料",
+    "研报搜索",
+    "文本中涉及股票",
+    "腾讯QQQQ空间",
+    "文章关键词",
+    "打开微信",
+    "房产历史视频",
+    "涉企侵权信息举报",
+    "证券\\>正文",
+    "证券>正文",
+    "特色 龙虎榜单",
+    "融资融券",
+    "股权质押",
+    "大宗交易",
+    "机构调研",
+    "公告大全",
+    "条件选股",
+    "新闻 体育 财经 娱乐 科技",
+    "更多 专栏 图片 博客",
+    "移动客户端",
+    "天气通",
+    "新浪视频",
+    "新浪博客",
+    "新浪众测",
+    "新浪体育",
+    "新浪新闻",
+    "新浪微博",
+    "我的收藏",
+    "加载中",
+    "上一页下一页",
+    "相关新闻",
+    "财经头条作者库",
+    "机构追踪",
+    "热力图",
+    "选股器",
+    "添加自选",
+    "沪深市场个股详情",
+    "公司公告",
+    "中期报告",
+    "一季度报告",
+    "三季度报告",
+    "请登录沪深自选",
+    "保存状态",
+    "登录名",
+    "免费注册",
+    "找回密码",
+    "登录帮助",
+    "每日必读",
+    "股市必察",
+    "股市直播",
+    "股市雷达",
+    "Exclusive news, data and analytics",
+    "Learn more aboutRefinitiv",
+    "Purchase Licensing Rights",
+    "opens new tab",
+    "Skip to main content",
+    "公司资料",
+    "公司简介",
+    "股本结构",
+    "主要股东",
+    "流通股东",
+    "基金持股",
+    "公司高管",
+    "公司章程",
+    "特色数据",
+    "理财| 银行",
+    "银行 保险 黄金 外汇",
+    "切换到 电脑版",
+    "上一组 下一组",
+    "环球市场",
+    "热点推荐",
+    "股票博客",
+    "财经博客",
+    "最近访问股",
+    "用户登录",
+    "@change",
+    "#stocks",
+)
+SHORT_SITE_CHROME_TOKENS = {
+    "新闻",
+    "体育",
+    "财经",
+    "娱乐",
+    "科技",
+    "博客",
+    "图片",
+    "专栏",
+    "房产",
+    "历史",
+    "视频",
+    "收藏",
+    "育儿",
+    "读书",
+    "股票",
+    "基金",
+    "滚动",
+    "公告",
+    "大盘",
+    "个股",
+    "新股",
+    "权证",
+    "报告",
+    "股票吧",
+    "港股",
+    "美股",
+}
 US_LISTING_HINTS = {"US", "USA", "NASDAQ", "NYSE", "AMEX", "OTC", "OTCQX", "OTCQB"}
 COMPANY_ACTION_VERBS = (
     "Announces",
@@ -104,6 +257,13 @@ TITLE_NOISE_PHRASES = (
     "Q3 2025",
     "Q4 2025",
 )
+COMMON_COMPANY_ALIASES: dict[str, dict[str, str]] = {
+    "microsoft": {"company_name": "Microsoft", "ticker": "MSFT", "exchange": "NASDAQ", "market": "US"},
+    "micro soft": {"company_name": "Microsoft", "ticker": "MSFT", "exchange": "NASDAQ", "market": "US"},
+    "mircosoft": {"company_name": "Microsoft", "ticker": "MSFT", "exchange": "NASDAQ", "market": "US"},
+    "msft": {"company_name": "Microsoft", "ticker": "MSFT", "exchange": "NASDAQ", "market": "US"},
+    "微软": {"company_name": "Microsoft", "ticker": "MSFT", "exchange": "NASDAQ", "market": "US"},
+}
 
 SECTOR_PROFILES: tuple[dict[str, Any], ...] = (
     {
@@ -223,6 +383,7 @@ class StockResearchConfig:
     api_key: str
     host: str
     model: str
+    model_chain: tuple[str, ...]
     think: str
     max_results: int
     max_fetches: int
@@ -343,11 +504,11 @@ def build_research_parser(parent: argparse.ArgumentParser | None = None, *, impl
     parser = parent or argparse.ArgumentParser(
         description="Run a multi-agent stock research workflow on Ollama Cloud and save local Chinese and English report documents."
     )
-    parser.add_argument("identifier", help="Ticker or company name, for example: 603283.SH or 赛腾股份")
-    parser.add_argument("market_positional", nargs="?", help="Optional market shorthand, for example: CN or US")
+    parser.add_argument("identifier", help="Ticker or company name, for example: 603283.SH, 603283, or 赛腾股份")
+    parser.add_argument("market_positional", nargs="?", help="Optional market/country shorthand, for example: 中国, CN, 美国, or US")
     parser.add_argument("--ticker", help="Optional ticker or exchange symbol hint. If omitted, ticker-like identifiers are used directly.")
     parser.add_argument("--market", default="", help="Market hint. Defaults to the positional market or CN.")
-    parser.add_argument("--angle", default="", help="Optional research angle or thesis framing.")
+    parser.add_argument("--angle", default="", help="Optional thesis framing. If omitted, runs a comprehensive buy-side review.")
     add_runtime_args(parser)
     return parser
 
@@ -461,13 +622,6 @@ def dispatch_command(args: argparse.Namespace) -> None:
             print(f"Processed {result['processed']} due entries.")
             for item in result["artifacts"]:
                 print(f"- {item['identifier']}: {item['primary_document_path']}")
-            if result.get("digest_path") and result.get("zh_digest_path") == result.get("en_digest_path"):
-                print(f"Saved watchlist digest to: {result['digest_path']}")
-            else:
-                if result.get("zh_digest_path"):
-                    print(f"Saved Chinese watchlist digest to: {result['zh_digest_path']}")
-                if result.get("en_digest_path"):
-                    print(f"Saved English watchlist digest to: {result['en_digest_path']}")
             return
 
     if args.command == "email":
@@ -574,10 +728,13 @@ def load_config(
     if "127.0.0.1" in host or "localhost" in host:
         raise RuntimeError("This branch is configured for Ollama Cloud only. Do not point it at a local Ollama host.")
     paths = resolve_workspace_paths(output_dir)
+    primary_model = normalize_cloud_model_name(model)
+    model_chain = build_cloud_model_chain(primary_model)
     return StockResearchConfig(
         api_key=api_key,
         host=host,
-        model=model,
+        model=primary_model,
+        model_chain=model_chain,
         think=think,
         max_results=max_results,
         max_fetches=max_fetches,
@@ -590,6 +747,30 @@ def load_config(
         watchlist_path=paths.watchlist_path,
         single_document_delivery=paths.single_document_delivery,
     )
+
+
+def normalize_cloud_model_name(model: str) -> str:
+    text = str(model or DEFAULT_MODEL).strip()
+    lowered = text.lower()
+    if lowered in MODEL_NAME_ALIASES:
+        return MODEL_NAME_ALIASES[lowered]
+    if not lowered.endswith(":cloud"):
+        for known in DEFAULT_CLOUD_MODEL_CHAIN:
+            root = known.removesuffix(":cloud")
+            if lowered == root:
+                return known
+    return text
+
+
+def build_cloud_model_chain(primary_model: str) -> tuple[str, ...]:
+    env_value = os.getenv("STOCK_RESEARCH_DESK_MODEL_FALLBACKS", "").strip()
+    fallback_candidates = [item.strip() for item in env_value.split(",") if item.strip()] if env_value else list(DEFAULT_CLOUD_MODEL_CHAIN)
+    ordered: list[str] = []
+    for candidate in [primary_model, *fallback_candidates]:
+        normalized = normalize_cloud_model_name(candidate)
+        if normalized not in ordered:
+            ordered.append(normalized)
+    return tuple(ordered)
 
 
 def run_stock_research(
@@ -607,6 +788,10 @@ def run_stock_research(
         stock_name=stock_name,
         ticker=ticker,
     )
+    if looks_like_stock_identifier(stock_name, market) and memory_context:
+        memory_stock_name = str((memory_context.payload or {}).get("stock_name") or "").strip()
+        if memory_stock_name and not looks_like_stock_identifier(memory_stock_name, market):
+            stock_name = memory_stock_name
     client = Client(
         host=config.host,
         headers={"Authorization": f"Bearer {config.api_key}"},
@@ -614,6 +799,7 @@ def run_stock_research(
     )
     if verbose:
         print(f"[stock-research] model={config.model} think={config.think} max_results={config.max_results} max_fetches={config.max_fetches}")
+        print(f"[stock-research] cloud_model_chain={', '.join(config.model_chain)}")
         if memory_context:
             print(f"[stock-research] loaded memory context from {memory_context.path}")
 
@@ -709,12 +895,6 @@ def run_stock_research(
             sentiment_simulator=sentiment_simulator,
             comparison_analyst=comparison_analyst,
         ),
-        fallback_note=build_red_team_fallback(
-            market_analyst=market_analyst,
-            company_analyst=company_analyst,
-            sentiment_simulator=sentiment_simulator,
-            comparison_analyst=comparison_analyst,
-        ),
         verbose=verbose,
     )
     guru_council = run_deliberation_agent(
@@ -727,13 +907,6 @@ def run_stock_research(
         user_prompt=build_guru_council_user_prompt(
             stock_name=stock_name,
             ticker=ticker,
-            market_analyst=market_analyst,
-            company_analyst=company_analyst,
-            sentiment_simulator=sentiment_simulator,
-            comparison_analyst=comparison_analyst,
-            committee_red_team=committee_red_team,
-        ),
-        fallback_note=build_guru_council_fallback(
             market_analyst=market_analyst,
             company_analyst=company_analyst,
             sentiment_simulator=sentiment_simulator,
@@ -758,14 +931,6 @@ def run_stock_research(
             comparison_analyst=comparison_analyst,
             committee_red_team=committee_red_team,
             guru_council=guru_council,
-        ),
-        fallback_note=build_mirofish_scenario_fallback(
-            stock_name=stock_name,
-            market_analyst=market_analyst,
-            company_analyst=company_analyst,
-            sentiment_simulator=sentiment_simulator,
-            comparison_analyst=comparison_analyst,
-            committee_red_team=committee_red_team,
         ),
         verbose=verbose,
     )
@@ -893,6 +1058,7 @@ def run_stock_research(
                 "runtime_metadata": {
                     "repaired": repaired,
                     "model": config.model,
+                    "model_chain": list(config.model_chain),
                     "persona_pack": {
                         role: list(get_persona_blend(role).lead_investors)
                         for role in [
@@ -1222,6 +1388,7 @@ def run_screening_scout(
         response = chat_with_guard(
             client,
             timeout_seconds=timeout_seconds,
+            model_chain=build_cloud_model_chain(normalize_cloud_model_name(model)),
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -1308,6 +1475,7 @@ def run_screening_scout_densification(
         response = chat_with_guard(
             client,
             timeout_seconds=timeout_seconds,
+            model_chain=build_cloud_model_chain(normalize_cloud_model_name(model)),
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -1423,6 +1591,7 @@ def run_second_screen_committee(
         response = chat_with_guard(
             client,
             timeout_seconds=timeout_seconds,
+            model_chain=build_cloud_model_chain(normalize_cloud_model_name(model)),
             model=model,
             messages=[
                 {
@@ -1680,28 +1849,12 @@ def run_due_watchlist(
             }
         )
     save_watchlist(paths, entries)
-    zh_digest_path = ""
-    en_digest_path = ""
-    if artifacts:
-        timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-        digest_paths = build_watchlist_digest_document_paths(
-            digests_dir=paths.digests_dir,
-            timestamp=timestamp,
-            single_document=paths.single_document_delivery,
-        )
-        if paths.single_document_delivery:
-            write_bilingual_watchlist_digest_docx(digest_paths["primary"], artifacts=artifacts)
-        else:
-            write_watchlist_digest_docx(digest_paths["zh"], artifacts=artifacts, language="zh")
-            write_watchlist_digest_docx(digest_paths["en"], artifacts=artifacts, language="en")
-        zh_digest_path = str(digest_paths["zh"])
-        en_digest_path = str(digest_paths["en"])
     return {
         "processed": processed,
         "artifacts": artifacts,
-        "zh_digest_path": zh_digest_path,
-        "en_digest_path": en_digest_path,
-        "digest_path": zh_digest_path,
+        "zh_digest_path": "",
+        "en_digest_path": "",
+        "digest_path": "",
     }
 
 
@@ -1837,9 +1990,9 @@ def process_email_inbox(
                 reply_body = (
                     "Stock Research Desk did not recognize your command.\n\n"
                     "Supported subjects:\n"
-                    "- research: 赛腾股份 | 603283.SH | CN | 中国故事\n"
-                    "- screen: 中国机器人 | 3 | CN | 中国故事\n"
-                    "- watchlist add: 赛腾股份 | 603283.SH | 7d | CN | 中国故事\n"
+                    "- research: 赛腾股份 |  | 中国\n"
+                    "- screen: 中国机器人 | 3 | 中国\n"
+                    "- watchlist add: 赛腾股份 |  | 7d | 中国\n"
                     "- watchlist list\n"
                     "- watchlist run-due\n"
                 )
@@ -1906,7 +2059,7 @@ def parse_email_command(*, subject: str, body: str) -> dict[str, Any] | None:
             "kind": "research",
             "stock_name": stock_name,
             "ticker": parts[1] if len(parts) > 1 else "",
-            "market": parts[2] if len(parts) > 2 and parts[2] else "CN",
+            "market": normalize_market_hint(parts[2] if len(parts) > 2 and parts[2] else "CN"),
             "angle": parts[3] if len(parts) > 3 else "",
         } if stock_name else None
     if lowered.startswith("screen:"):
@@ -1916,7 +2069,7 @@ def parse_email_command(*, subject: str, body: str) -> dict[str, Any] | None:
             "kind": "screen",
             "theme": theme,
             "count": int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 3,
-            "market": parts[2] if len(parts) > 2 and parts[2] else "CN",
+            "market": normalize_market_hint(parts[2] if len(parts) > 2 and parts[2] else "CN"),
             "angle": parts[3] if len(parts) > 3 else "",
         } if theme else None
     if lowered.startswith("watchlist add:"):
@@ -1927,7 +2080,7 @@ def parse_email_command(*, subject: str, body: str) -> dict[str, Any] | None:
             "stock_name": stock_name,
             "ticker": parts[1] if len(parts) > 1 else "",
             "interval": parts[2] if len(parts) > 2 and parts[2] else "7d",
-            "market": parts[3] if len(parts) > 3 and parts[3] else "CN",
+            "market": normalize_market_hint(parts[3] if len(parts) > 3 and parts[3] else "CN"),
             "angle": parts[4] if len(parts) > 4 else "",
         } if stock_name else None
     if lowered.startswith("watchlist list"):
@@ -1996,7 +2149,7 @@ def execute_email_command(
     if kind == "watchlist_run_due":
         result = run_due_watchlist(paths=paths, config=config, limit=10, verbose=verbose)
         body = render_email_watchlist_digest_reply(result)
-        attachments = unique_attachment_paths(result.get("digest_path"), *(item["primary_document_path"] for item in result["artifacts"]))
+        attachments = unique_attachment_paths(*(item["primary_document_path"] for item in result["artifacts"]))
         return {"body": body, "attachments": attachments}
     raise RuntimeError(f"Unsupported email command: {kind}")
 
@@ -2106,8 +2259,6 @@ def render_email_watchlist_digest_reply(result: dict[str, Any]) -> str:
         "",
         f"- Refreshed names: {result.get('processed', 0)}",
     ]
-    if result.get("zh_digest_path") or result.get("en_digest_path"):
-        lines.append(f"- Attached digest bundle: {result.get('zh_digest_path') or result.get('en_digest_path')}")
     lines.extend(["", "Desk highlights:"])
     if not artifacts:
         lines.append("- No watchlist names were due in this cycle.")
@@ -2168,11 +2319,17 @@ def build_agent_user_prompt(
         "stock_name": stock_name,
         "ticker_hint": ticker,
         "market_hint": market,
-        "angle": angle or "中国故事",
+        "angle": angle or DEFAULT_RESEARCH_ANGLE,
         "objective": objective,
+        "current_date": datetime.now(UTC).date().isoformat(),
         "memory_context": summarize_memory_context(memory_context),
     }
-    return f"研究这个标的并完成指定目标。可以主动联网搜索与抓取官方网页。输入：{json.dumps(payload, ensure_ascii=False)}"
+    return (
+        "研究这个标的并完成指定目标。可以主动联网搜索与抓取官方网页。"
+        "必须同时保留历史底蕴资料和最新实效信息：优先补充最近90天与最近12个月的公告、新闻、订单、股价、行业催化和风险事件，"
+        "并说明哪些近期信息可能影响未来市场波动。"
+        f"输入：{json.dumps(payload, ensure_ascii=False)}"
+    )
 
 
 def build_screening_scout_prompt(*, max_results: int, max_fetches: int) -> str:
@@ -2540,6 +2697,7 @@ def build_market_analyst_prompt(max_results: int, max_fetches: int) -> str:
         "优先使用 web_search 与 web_fetch 核实上市地点、行业结构、需求周期、竞争格局与中国叙事。"
         f"Use no more than {max_results} search results per search and no more than {max_fetches} page fetches total. "
         "偏好官方投资者关系页面、交易所页面、公司公告与权威媒体。"
+        "必须至少尝试覆盖最近90天和最近12个月的行业/公司相关变化，再回看历史周期与底蕴。"
         "横向要比较行业位置与竞争格局，纵向要判断周期位置、资本开支与估值桥接。"
         "输出中文 Markdown，包含：市场结构、需求驱动、竞争格局、中国故事、估值框架线索、待核实问题。"
     )
@@ -2552,6 +2710,7 @@ def build_company_analyst_prompt(max_results: int, max_fetches: int) -> str:
         "使用 web_search 与 web_fetch 调研公司业务、产品、客户、订单、财务趋势、管理层、治理风险与关键公告。"
         f"Use no more than {max_results} search results per search and no more than {max_fetches} page fetches total. "
         "优先寻找公司官网、年报/公告、投资者交流纪要、可靠媒体或券商摘要。"
+        "必须把最新公告、近期订单/合同、业绩预告/季报、股东或治理变化与历史经营底蕴分开判断。"
         "纵向要追踪业务质量和管理层行为，横向要判断它是否真的优于替代资产。"
         "输出中文 Markdown，包含：业务概览、商业模式、经营信号、多头逻辑、空头逻辑、催化剂、主要风险。"
     )
@@ -2564,6 +2723,7 @@ def build_sentiment_simulator_prompt(max_results: int, max_fetches: int) -> str:
         "先通过 web_search 与 web_fetch 搜集公开叙事、媒体口径、投资者交流与讨论线索，再模拟不同参与者的反应。"
         f"Use no more than {max_results} search results per search and no more than {max_fetches} page fetches total. "
         "把叙事拆成能推高预期的、会压低估值的、以及可能突然反转的三层。"
+        "必须单独识别近期消息流、短线情绪触发器和未来1-3个月可能造成波动的事件。"
         "输出中文 Markdown，包含：当前叙事温度、多头叙事、空头叙事、"
         "成长基金视角、卖方怀疑派视角、产业链经营者视角、题材交易型散户视角。"
     )
@@ -2576,6 +2736,7 @@ def build_comparison_analyst_prompt(max_results: int, max_fetches: int) -> str:
         "使用 web_search 与 web_fetch 搜集可比公司、行业位置、估值口径、历史周期表现与资本开支节奏。"
         f"Use no more than {max_results} search results per search and no more than {max_fetches} page fetches total. "
         "必须同时回答：为什么值得研究，以及为什么可能根本不值得优先研究。"
+        "比较时要区分历史质量、当前估值锚和最近消息/业绩变化带来的边际变化。"
         "输出中文 Markdown，包含：可比公司列表、相对优势、相对劣势、估值锚、为什么这家公司值得或不值得优先研究。"
     )
 
@@ -2703,7 +2864,8 @@ def build_buy_side_synthesis_prompt(
         "stock_name": stock_name,
         "ticker_hint": ticker,
         "market_hint": market,
-        "angle": angle or "中国故事",
+        "angle": angle or DEFAULT_RESEARCH_ANGLE,
+        "current_date": datetime.now(UTC).date().isoformat(),
         "market_analyst": clip_text(market_analyst.content),
         "company_analyst": clip_text(company_analyst.content),
         "sentiment_simulator": clip_text(sentiment_simulator.content),
@@ -2723,13 +2885,15 @@ def build_buy_side_synthesis_prompt(
     }
     return (
         "Return a single JSON object only with these keys: "
-        "company_name, ticker, exchange, market, quick_take, verdict, confidence, market_map, business_summary, "
+        "company_name, ticker, exchange, market, quick_take, verdict, confidence, recent_developments, market_map, business_summary, "
         "china_story, sentiment_simulation, peer_comparison, committee_takeaways, scenario_outlook, debate_notes, "
         "bull_case, bear_case, catalysts, risks, valuation_view, target_prices, evidence, next_questions. "
         "bull_case, bear_case, catalysts, risks, next_questions must be arrays with dense, buy-side quality bullet points. "
         "evidence must include title, url, claim, stance. "
         "target_prices must be an object with short_term, medium_term, long_term; each has price, horizon, thesis. "
         "Keep quick_take, market_map, business_summary, china_story, sentiment_simulation, peer_comparison, committee_takeaways, scenario_outlook, debate_notes, valuation_view concise and information-dense. "
+        "recent_developments must separately summarize the latest effective information: recent announcements, recent earnings/order/customer signals, price/news flow, and near-term volatility implications. "
+        "Do not overwrite older historical context; use older material for business quality and moat history, and recent material for marginal change and market volatility. "
         "Do not return Markdown, only structured JSON. "
         "If any agent note is trace-like or noisy, distill it into concrete investment-relevant claims rather than repeating page titles or navigation text. "
         "Use the price committee and MiroFish scenario engine to assign short-, medium-, and long-term target prices with explicit time horizons. "
@@ -2754,37 +2918,28 @@ def run_deliberation_agent(
     name: str,
     system_prompt: str,
     user_prompt: str,
-    fallback_note: str | None = None,
     verbose: bool = False,
 ) -> AgentRunResult:
     started = time.perf_counter()
-    try:
-        if verbose:
-            print(f"[agent:{name}] deliberating")
-        response = chat_with_guard(
-            client,
-            timeout_seconds=timeout_seconds,
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            think=resolve_think(model, think),
-        )
-        content = response.message.content or ""
-        if content.strip():
-            if verbose:
-                print(f"[agent:{name}] finished in {round(time.perf_counter() - started, 1)}s")
-            return AgentRunResult(name=name, content=content, tool_traces=[])
-    except Exception:
-        pass
     if verbose:
-        print(f"[agent:{name}] fell back to minimal deliberation note in {round(time.perf_counter() - started, 1)}s")
-    return AgentRunResult(
-        name=name,
-        content=fallback_note or "需要继续进行红队质询，当前云端 deliberation 未完成。",
-        tool_traces=[],
+        print(f"[agent:{name}] deliberating")
+    response = chat_with_guard(
+        client,
+        timeout_seconds=timeout_seconds,
+        model_chain=build_cloud_model_chain(normalize_cloud_model_name(model)),
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        think=resolve_think(model, think),
     )
+    content = response.message.content or ""
+    if not content.strip():
+        raise RuntimeError(f"{name} returned an empty cloud response; report generation aborted.")
+    if verbose:
+        print(f"[agent:{name}] finished in {round(time.perf_counter() - started, 1)}s")
+    return AgentRunResult(name=name, content=content, tool_traces=[])
 
 
 def summarize_memory_context(memory_context: MemoryContext | None) -> dict[str, Any] | None:
@@ -2820,64 +2975,45 @@ def synthesize_buy_side_report(
     price_committee: AgentRunResult,
     distilled_notes: dict[str, dict[str, Any]],
 ) -> str:
-    try:
-        response = chat_with_guard(
-            client,
-            timeout_seconds=config.timeout_seconds,
-            model=config.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a buy-side portfolio analyst writing a high-density Chinese investment memo. "
-                        "Return one stable JSON object only."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": build_buy_side_synthesis_prompt(
-                        stock_name=stock_name,
-                        ticker=ticker,
-                        market=market,
-                        angle=angle,
-                        market_analyst=market_analyst,
-                        company_analyst=company_analyst,
-                        sentiment_simulator=sentiment_simulator,
-                        comparison_analyst=comparison_analyst,
-                        committee_red_team=committee_red_team,
-                        guru_council=guru_council,
-                        mirofish_scenario_engine=mirofish_scenario_engine,
-                        price_committee=price_committee,
-                        distilled_notes=distilled_notes,
-                    ),
-                },
-            ],
-            think=resolve_think(config.model, config.think),
-            format="json",
-        )
-        content = response.message.content or ""
-        if content.strip():
-            return content
-    except Exception:
-        pass
-
-    return json.dumps(
-        build_local_synthesis_payload(
-            stock_name=stock_name,
-            ticker=ticker,
-            market=market,
-            angle=angle,
-            market_analyst=market_analyst,
-            company_analyst=company_analyst,
-            sentiment_simulator=sentiment_simulator,
-            comparison_analyst=comparison_analyst,
-            committee_red_team=committee_red_team,
-            guru_council=guru_council,
-            mirofish_scenario_engine=mirofish_scenario_engine,
-            price_committee=price_committee,
-        ),
-        ensure_ascii=False,
+    response = chat_with_guard(
+        client,
+        timeout_seconds=config.timeout_seconds,
+        model_chain=config.model_chain,
+        model=config.model,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a buy-side portfolio analyst writing a high-density Chinese investment memo. "
+                    "Return one stable JSON object only."
+                ),
+            },
+            {
+                "role": "user",
+                "content": build_buy_side_synthesis_prompt(
+                    stock_name=stock_name,
+                    ticker=ticker,
+                    market=market,
+                    angle=angle,
+                    market_analyst=market_analyst,
+                    company_analyst=company_analyst,
+                    sentiment_simulator=sentiment_simulator,
+                    comparison_analyst=comparison_analyst,
+                    committee_red_team=committee_red_team,
+                    guru_council=guru_council,
+                    mirofish_scenario_engine=mirofish_scenario_engine,
+                    price_committee=price_committee,
+                    distilled_notes=distilled_notes,
+                ),
+            },
+        ],
+        think=resolve_think(config.model, config.think),
+        format="json",
     )
+    content = response.message.content or ""
+    if not content.strip():
+        raise RuntimeError("Final cloud synthesis returned an empty response; report generation aborted.")
+    return content
 
 
 def resolve_think(model: str, think: str) -> str | None:
@@ -2979,9 +3115,28 @@ def chat_with_guard(
     client: Client,
     *,
     timeout_seconds: float,
+    model_chain: tuple[str, ...] | None = None,
     **kwargs: Any,
 ) -> Any:
-    return client.chat(**kwargs)
+    primary_model = normalize_cloud_model_name(str(kwargs.get("model") or DEFAULT_MODEL))
+    candidate_models = model_chain or build_cloud_model_chain(primary_model)
+    errors: list[str] = []
+    original_think = kwargs.get("think")
+    for candidate in candidate_models:
+        call_kwargs = dict(kwargs)
+        call_kwargs["model"] = candidate
+        if "think" in call_kwargs:
+            call_kwargs["think"] = resolve_think(candidate, str(original_think or ""))
+        try:
+            return client.chat(**call_kwargs)
+        except Exception as exc:
+            errors.append(f"{candidate}: {exc}")
+            continue
+    raise RuntimeError(
+        "Ollama Cloud model chain failed after the configured timeout window. "
+        "Cloud connectivity or model availability looks unstable; report generation aborted. "
+        f"Tried: {', '.join(candidate_models)}. Errors: {' | '.join(errors)}"
+    )
 
 
 def call_with_guard(
@@ -3026,6 +3181,7 @@ def translate_structured_payload(
         response = chat_with_guard(
             client,
             timeout_seconds=timeout_seconds,
+            model_chain=build_cloud_model_chain(normalize_cloud_model_name(model)),
             model=model,
             messages=[
                 {
@@ -3036,12 +3192,12 @@ def translate_structured_payload(
             ],
             think=resolve_think(model, think),
         )
-        content = response.message.content or ""
-        parsed, _ = parse_structured_response(content)
-        if isinstance(parsed, dict) and not payload_contains_cjk(parsed):
-            return parsed
-    except Exception:
-        pass
+    except Exception as exc:
+        raise RuntimeError("English translation cloud model chain failed; report generation aborted.") from exc
+    content = response.message.content or ""
+    parsed, _ = parse_structured_response(content)
+    if isinstance(parsed, dict) and not payload_contains_cjk(parsed):
+        return parsed
     return fallback_payload
 
 
@@ -3094,11 +3250,8 @@ def safe_run_agent_with_tools(**kwargs: Any) -> AgentRunResult:
     try:
         return run_agent_with_tools(**kwargs)
     except Exception as exc:
-        return AgentRunResult(
-            name=str(kwargs.get("name") or "agent"),
-            content=f"{kwargs.get('name') or 'agent'} 未完成完整总结，当前保留错误信息：{exc}",
-            tool_traces=[{"tool_name": "error", "arguments": {}, "result": {"error": str(exc)}}],
-        )
+        name = str(kwargs.get("name") or "agent")
+        raise RuntimeError(f"{name} cloud model chain failed; report generation aborted. {exc}") from exc
 
 
 def run_agent_with_tools(
@@ -3137,6 +3290,8 @@ def run_agent_with_tools(
     tool_calls = planning_message.tool_calls or []
 
     if not tool_calls:
+        if not (planning_message.content or "").strip():
+            raise RuntimeError(f"{name} returned no tool calls and no cloud content.")
         if verbose:
             print(f"[agent:{name}] finished without tools in {round(time.perf_counter() - started, 1)}s")
         return AgentRunResult(name=name, content=planning_message.content or "", tool_traces=tool_traces)
@@ -3174,30 +3329,27 @@ def run_agent_with_tools(
         tool_traces=tool_traces,
     )
 
-    try:
-        if verbose:
-            print(f"[agent:{name}] synthesizing note")
-        synthesis_response = chat_with_guard(
-            client,
-            timeout_seconds=timeout_seconds,
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": synthesis_prompt},
-            ],
-            think=resolve_think(model, think),
-        )
-        content = synthesis_response.message.content or ""
-        if content.strip():
-            if verbose:
-                print(f"[agent:{name}] finished in {round(time.perf_counter() - started, 1)}s")
-            return AgentRunResult(name=name, content=content, tool_traces=tool_traces)
-    except Exception:
-        pass
-
     if verbose:
-        print(f"[agent:{name}] fell back to trace summary in {round(time.perf_counter() - started, 1)}s")
-    return AgentRunResult(name=name, content=render_agent_trace_summary(name=name, tool_traces=tool_traces), tool_traces=tool_traces)
+        print(f"[agent:{name}] synthesizing note")
+    synthesis_response = chat_with_guard(
+        client,
+        timeout_seconds=timeout_seconds,
+        model_chain=build_cloud_model_chain(normalize_cloud_model_name(model)),
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": synthesis_prompt},
+        ],
+        think=resolve_think(model, think),
+    )
+    content = synthesis_response.message.content or ""
+    if content.strip():
+        if verbose:
+            print(f"[agent:{name}] finished in {round(time.perf_counter() - started, 1)}s")
+        return AgentRunResult(name=name, content=content, tool_traces=tool_traces)
+    if verbose:
+        print(f"[agent:{name}] empty cloud synthesis in {round(time.perf_counter() - started, 1)}s")
+    raise RuntimeError(f"{name} returned an empty cloud synthesis response.")
 
 
 def normalize_report_payload(
@@ -3213,9 +3365,20 @@ def normalize_report_payload(
     fallback_target_prices: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     company_name = str(payload.get("company_name") or stock_name)
+    if looks_like_stock_identifier(company_name, market) and stock_name and not looks_like_stock_identifier(stock_name, market):
+        company_name = stock_name
     resolved_ticker = normalize_ticker(str(payload.get("ticker") or ticker or stock_name), payload.get("exchange"), market)
     exchange = str(payload.get("exchange") or "")
-    evidence = merge_evidence(normalize_evidence(payload.get("evidence")), fallback_evidence or [])
+    known_identity = (
+        resolve_known_company_alias(company_name, market)
+        or resolve_known_company_alias(stock_name, market)
+        or resolve_known_company_alias(str(payload.get("ticker") or ""), market)
+    )
+    if known_identity:
+        company_name = known_identity["company_name"]
+        resolved_ticker = known_identity["ticker"]
+        exchange = str(payload.get("exchange") or known_identity.get("exchange") or "")
+    evidence = merge_evidence(normalize_evidence(payload.get("evidence")), normalize_evidence(fallback_evidence or []))
     bull_case = normalize_strings(payload.get("bull_case"))
     bear_case = normalize_strings(payload.get("bear_case"))
     catalysts = normalize_strings(payload.get("catalysts"))
@@ -3233,20 +3396,38 @@ def normalize_report_payload(
     council_fallback = ((distilled_notes or {}).get("guru_council") or {}).get("summary", "")
     scenario_fallback = ((distilled_notes or {}).get("mirofish_scenario_engine") or {}).get("summary", "")
     quick_take = str(payload.get("quick_take") or f"{company_name} 需要继续核实核心基本面与估值锚。")
-    market_map = choose_section_text(str(payload.get("market_map") or ""), market_fallback, "市场结构、需求周期与竞争格局仍需继续补证。")
-    business_summary = choose_section_text(str(payload.get("business_summary") or ""), company_fallback, "缺少足够资料，业务概览仍需补证。")
-    china_story = str(payload.get("china_story") or angle or "需要继续验证其在中国叙事中的位置。")
-    sentiment_simulation = choose_section_text(str(payload.get("sentiment_simulation") or ""), sentiment_fallback, "市场叙事与舆情模拟仍需继续补证。")
-    peer_comparison = choose_section_text(str(payload.get("peer_comparison") or ""), comparison_fallback, "横向可比公司与估值锚仍需继续补证。")
-    committee_takeaways = choose_section_text(str(payload.get("committee_takeaways") or ""), council_fallback, "委员会当前共识仍不足，需继续压缩成更清晰的研究判断。")
-    scenario_outlook = choose_section_text(str(payload.get("scenario_outlook") or ""), scenario_fallback, "多未来情景仍需继续补证，当前只能维持 base-case watchlist。")
-    debate_notes = choose_section_text(str(payload.get("debate_notes") or ""), red_team_fallback, "当前红队质询仍不足，需继续验证关键假设。")
+    if company_name and resolved_ticker and company_name != resolved_ticker and quick_take.startswith(resolved_ticker):
+        quick_take = company_name + quick_take[len(resolved_ticker):]
+    if contains_market_mismatch_template(quick_take, market):
+        quick_take = (
+            f"{company_name} 当前更适合作为 watchlist 持续研究；"
+            "需要继续验证增长质量、资本回报、监管风险与估值安全边际。"
+        )
+    market_map = choose_section_text(str(payload.get("market_map") or ""), market_fallback, "市场结构、需求周期与竞争格局仍需继续补证。", market=market)
+    business_summary = choose_section_text(str(payload.get("business_summary") or ""), company_fallback, "缺少足够资料，业务概览仍需补证。", market=market)
+    recent_developments = choose_section_text(
+        str(payload.get("recent_developments") or ""),
+        build_recent_developments(evidence),
+        "当前高质量证据主要偏历史和基础资料，仍需补充最近90天公告、订单、业绩、股价与行业新闻以判断未来波动。",
+        market=market,
+    )
+    china_story = str(payload.get("china_story") or angle or DEFAULT_RESEARCH_ANGLE)
+    sentiment_simulation = choose_section_text(str(payload.get("sentiment_simulation") or ""), sentiment_fallback, "市场叙事与舆情模拟仍需继续补证。", market=market)
+    peer_comparison = choose_section_text(str(payload.get("peer_comparison") or ""), comparison_fallback, "横向可比公司与估值锚仍需继续补证。", market=market)
+    committee_takeaways = choose_section_text(str(payload.get("committee_takeaways") or ""), council_fallback, "委员会当前共识仍不足，需继续压缩成更清晰的研究判断。", market=market)
+    scenario_outlook = choose_section_text(str(payload.get("scenario_outlook") or ""), scenario_fallback, "多未来情景仍需继续补证，当前只能维持 base-case watchlist。", market=market)
+    debate_notes = choose_section_text(str(payload.get("debate_notes") or ""), red_team_fallback, "当前红队质询仍不足，需继续验证关键假设。", market=market)
     valuation_view = str(payload.get("valuation_view") or "当前版本没有足够公开证据支持更细的估值判断。")
     if distilled_notes:
         bull_case = choose_section_list(bull_case, ((distilled_notes.get("company_analyst") or {}).get("bull_case") or []))
         bear_case = choose_section_list(bear_case, ((distilled_notes.get("company_analyst") or {}).get("bear_case") or []))
         catalysts = choose_section_list(catalysts, ((distilled_notes.get("company_analyst") or {}).get("catalysts") or []))
         risks = choose_section_list(risks, ((distilled_notes.get("company_analyst") or {}).get("risks") or []))
+    bull_case = filter_market_mismatch_items(bull_case, market)
+    bear_case = filter_market_mismatch_items(bear_case, market)
+    catalysts = filter_market_mismatch_items(catalysts, market)
+    risks = filter_market_mismatch_items(risks, market)
+    next_questions = filter_market_mismatch_items(next_questions, market)
     price_committee_fallback = derive_target_prices_from_context(
         ((distilled_notes or {}).get("price_committee") or {}).get("summary", ""),
         verdict=verdict,
@@ -3264,6 +3445,8 @@ def normalize_report_payload(
             ticker=resolved_ticker,
         ),
     )
+    if count_target_price_values(fallback_target_prices or {}) >= 2:
+        target_prices = overlay_preferred_target_prices(target_prices, fallback_target_prices or {})
     rendered_markdown = render_markdown(
         company_name=company_name,
         ticker=resolved_ticker,
@@ -3275,6 +3458,7 @@ def normalize_report_payload(
         confidence=confidence,
         market_map=market_map,
         business_summary=business_summary,
+        recent_developments=recent_developments,
         china_story=china_story,
         sentiment_simulation=sentiment_simulation,
         peer_comparison=peer_comparison,
@@ -3304,6 +3488,7 @@ def normalize_report_payload(
         "raw_confidence": raw_confidence or confidence,
         "market_map": market_map,
         "business_summary": business_summary,
+        "recent_developments": recent_developments,
         "china_story": china_story,
         "sentiment_simulation": sentiment_simulation,
         "peer_comparison": peer_comparison,
@@ -3335,25 +3520,32 @@ def normalize_evidence(value: Any) -> list[dict[str, str]]:
     for item in value:
         if not isinstance(item, dict):
             continue
-        title = str(item.get("title") or "").strip()
+        raw_title = str(item.get("title") or "").strip()
         url = str(item.get("url") or "").strip()
-        claim = str(item.get("claim") or "").strip()
+        raw_claim = str(item.get("claim") or "").strip()
+        if not raw_title and not url and not raw_claim:
+            continue
+        title = clean_source_title(raw_title, url=url)
+        claim = clean_evidence_claim(raw_claim)
         stance = str(item.get("stance") or "neutral").strip()
         quality = int(item.get("quality") or source_quality_score(url))
-        if not title and not url and not claim:
+        if is_blocked_source(url) or quality < MIN_SOURCE_QUALITY or is_low_signal_research_text(claim or title):
             continue
-        if is_blocked_source(url) or quality < MIN_SOURCE_QUALITY:
-            continue
-        normalized.append(
-            {
-                "title": title or url or "Untitled source",
-                "url": url,
-                "claim": claim or "No explicit evidence claim provided.",
-                "stance": stance,
-                "domain": source_domain(url),
-                "quality": str(quality),
-            }
-        )
+        normalized_item = {
+            "title": title or url or "Untitled source",
+            "url": url,
+            "claim": claim or "No explicit evidence claim provided.",
+            "stance": stance,
+            "domain": source_domain(url),
+            "quality": str(quality),
+        }
+        source_date = str(item.get("source_date") or extract_source_date(f"{title} {claim} {url}") or "").strip()
+        retrieved_at = str(item.get("retrieved_at") or "").strip()
+        if source_date:
+            normalized_item["source_date"] = source_date
+        if retrieved_at:
+            normalized_item["retrieved_at"] = retrieved_at
+        normalized.append(normalized_item)
     normalized.sort(key=evidence_sort_key, reverse=True)
     return normalized[:12]
 
@@ -3362,6 +3554,10 @@ def merge_evidence(primary: list[dict[str, str]], fallback: list[dict[str, str]]
     merged: list[dict[str, str]] = []
     seen: set[tuple[str, str]] = set()
     for item in [*primary, *fallback]:
+        if is_blocked_source(str(item.get("url") or "")):
+            continue
+        if is_low_signal_research_text(str(item.get("claim") or item.get("title") or "")):
+            continue
         key = (item.get("title", "").strip(), item.get("url", "").strip())
         if key in seen:
             continue
@@ -3369,6 +3565,21 @@ def merge_evidence(primary: list[dict[str, str]], fallback: list[dict[str, str]]
         merged.append(item)
     merged.sort(key=evidence_sort_key, reverse=True)
     return merged[:12]
+
+
+def build_recent_developments(evidence: list[dict[str, str]]) -> str:
+    recent_items = [
+        item for item in sorted(evidence, key=evidence_sort_key, reverse=True)
+        if evidence_freshness_score(item) > 0
+    ][:5]
+    if not recent_items:
+        return ""
+    lines = []
+    for item in recent_items:
+        date_label = str(item.get("source_date") or "").strip()
+        prefix = f"{date_label}｜" if date_label else ""
+        lines.append(f"- {prefix}{item.get('title', 'Source')}：{clip_text(str(item.get('claim') or ''), 160)}")
+    return "\n".join(lines)
 
 
 def build_agent_synthesis_prompt(*, name: str, user_prompt: str, tool_traces: list[dict[str, Any]]) -> str:
@@ -3650,8 +3861,8 @@ def build_red_team_fallback(
     company_risks = select_negative_points([company_analyst.content])
     sentiment_risks = select_negative_points([sentiment_simulator.content])
     bullets = [
-        "- 最关键的断点是公司是否真的完成了从消费电子自动化向高端半导体设备的收入结构迁移。",
-        "- 如果客户集中度没有实质下降，所谓中国高端制造叙事就可能只是旧苹果链故事的重新包装。",
+        "- 最关键的断点是公司当前增长叙事能否被收入质量、现金流和客户续约/订单证据验证。",
+        "- 如果增量需求和资本回报没有实质改善，叙事热度可能先于基本面兑现而回落。",
     ]
     bullets.extend(f"- {item}" for item in market_risks[:2])
     bullets.extend(f"- {item}" for item in company_risks[:2])
@@ -3662,6 +3873,7 @@ def build_red_team_fallback(
 
 def build_guru_council_fallback(
     *,
+    stock_name: str,
     market_analyst: AgentRunResult,
     company_analyst: AgentRunResult,
     sentiment_simulator: AgentRunResult,
@@ -3677,12 +3889,12 @@ def build_guru_council_fallback(
     return "\n".join(
         [
             "## 委员会共识",
-            f"- {first_meaningful_line(positives) or '赛腾股份具备继续研究价值，但证据还不足以支持高确信判断。'}",
+            f"- {first_meaningful_line(positives) or f'{stock_name} 具备继续研究价值，但证据还不足以支持高确信判断。'}",
             "## 委员会分歧",
-            f"- {first_meaningful_line(negatives) or '主要分歧在于半导体设备故事是否已经足够替代旧苹果链逻辑。'}",
+            f"- {first_meaningful_line(negatives) or '主要分歧在于增长叙事、资本回报与估值安全边际是否匹配。'}",
             "## 最关键验证点",
-            "- 核心订单和收入中，半导体与先进制造占比是否持续提升。",
-            "- 客户集中度是否真的下降，而不是被叙事掩盖。",
+            "- 增量收入是否来自可持续需求，而不是一次性或实验性采购。",
+            "- 资本开支、利润率与自由现金流是否支持当前估值锚。",
             "## 当前建议",
             "- 继续保留在 watchlist，并优先验证订单质量、客户结构和估值锚。",
         ]
@@ -3710,17 +3922,17 @@ def build_mirofish_scenario_fallback(
     return "\n".join(
         [
             "## 短期未来（0-3个月）",
-            f"- Bull: {first_meaningful_line(catalysts) or f'{stock_name} 若出现订单/客户验证，主题资金会更积极交易中国高端制造叙事。'}",
-            f"- Base: {first_meaningful_line(positives) or '维持 watchlist，市场继续围绕国产替代与订单兑现博弈。'}",
+            f"- Bull: {first_meaningful_line(catalysts) or f'{stock_name} 若出现业绩、客户或产品验证，市场会更积极交易其增长叙事。'}",
+            f"- Base: {first_meaningful_line(positives) or '维持 watchlist，市场继续围绕增长质量、估值锚和催化剂兑现博弈。'}",
             f"- Bear: {first_meaningful_line(negatives) or '若基本面验证迟迟不来，叙事热度会先于盈利兑现回落。'}",
             "## 中期未来（3-12个月）",
-            "- Bull: 半导体设备与先进制造订单开始形成更清晰的收入迁移，估值锚逐步上修。",
-            "- Base: 业务结构改善但节奏偏慢，估值仍停留在观察区间。",
-            "- Bear: 客户集中与景气波动导致市场重新把它归类为周期性苹果链设备商。",
+            "- Bull: 增量业务开始形成更清晰的收入和利润贡献，估值锚逐步上修。",
+            "- Base: 基本面改善但节奏偏慢，估值仍停留在观察区间。",
+            "- Bear: 增长质量或资本回报低于预期，市场下调估值倍数。",
             "## 长期未来（12-36个月）",
-            "- Bull: 若客户结构升级和产品放量持续，长期可以被重估为更高质量的先进制造设备资产。",
-            "- Base: 成长性与周期性并存，长期回报取决于订单持续性和资本开支周期。",
-            "- Bear: 若高端设备卡位不成，长期会回到低质量自动化设备估值框架。",
+            "- Bull: 若护城河、客户粘性和资本回报持续改善，长期可以被重估为更高质量复利资产。",
+            "- Base: 成长性与周期性并存，长期回报取决于收入持续性和自由现金流质量。",
+            "- Bear: 若竞争、监管或投入回报恶化，长期会回到更低质量的成熟资产估值框架。",
         ]
     )
 
@@ -3817,6 +4029,8 @@ def split_signal_fragments(text: str) -> list[str]:
     if not text.strip():
         return []
     normalized = text.replace("：", "： ").replace("|", "\n").replace("·", "\n")
+    normalized = re.sub(r"\s+/\s+", "\n", normalized)
+    normalized = re.sub(r"\s+-\s+(?=(?:##|Bull|Base|Bear|如果|在没有|滚动新闻|证券代码|公司代码))", "\n", normalized)
     chunks = re.split(r"[\n。；;]+", normalized)
     fragments: list[str] = []
     for chunk in chunks:
@@ -3923,7 +4137,7 @@ def filter_research_bullets(items: list[str]) -> list[str]:
     kept: list[str] = []
     for item in items:
         cleaned = clean_research_line(item)
-        if not cleaned or looks_like_title_stub(cleaned):
+        if not cleaned or looks_like_title_stub(cleaned) or is_low_signal_research_text(cleaned):
             continue
         kept.append(cleaned)
     return kept
@@ -3994,115 +4208,83 @@ def clean_research_line(line: str) -> str:
     if stripped in {"---", "___"}:
         return ""
     cleaned = sanitize_source_text(stripped)
-    if not cleaned or looks_like_navigation_noise(cleaned):
+    if not cleaned or looks_like_title_stub(cleaned) or looks_like_navigation_noise(cleaned) or is_low_signal_research_text(cleaned):
         return ""
     return cleaned
 
 
 def looks_like_navigation_noise(text: str) -> bool:
     lowered = text.lower()
-    noisy_tokens = (
-        "_新浪",
-        "新浪网",
-        "同花顺",
-        "证券之星",
-        "中财网",
-        "理杏仁",
-        "股票频道",
-        "财经首页",
-        "股吧",
-        "和讯网",
-        "东方财富",
-        "发现报告",
-        "腾讯新闻",
-        "http://",
-        "https://",
-        "扫码",
-        "专题 数据 行情",
-        "更多**",
-        "请务必阅读正文之后的免责声明部分",
-        "行情中心",
-        "自选股",
-        "板块详情",
-        "指数详情",
-        "看点 行情 量化",
-        "主板 必读 研报 新股",
-    )
+    noisy_tokens = (*SITE_CHROME_TOKENS, "和讯网", "东方财富", "腾讯新闻", "http://", "https://", "专题 数据 行情", "更多**", "请务必阅读正文之后的免责声明部分", "板块详情", "指数详情")
     if any(token in text or token in lowered for token in noisy_tokens):
         return True
     if text.count("|") >= 2 or text.count("·") >= 2 or text.count("*") >= 2:
         return True
     if text.count("_") >= 2:
         return True
-    if len(text) < 8:
+    if len(text) < 4:
         return True
-    if re.fullmatch(r"[A-Za-z0-9\-\._/:\(\)\[\] ]+", text):
+    if " " not in text and re.fullmatch(r"[A-Za-z0-9\-\._/:\(\)\[\]]+", text):
         return True
     return False
 
 
-def build_local_synthesis_payload(
-    *,
-    stock_name: str,
-    ticker: str | None,
-    market: str,
-    angle: str,
-    market_analyst: AgentRunResult,
-    company_analyst: AgentRunResult,
-    sentiment_simulator: AgentRunResult,
-    comparison_analyst: AgentRunResult,
-    committee_red_team: AgentRunResult,
-    guru_council: AgentRunResult,
-    mirofish_scenario_engine: AgentRunResult,
-    price_committee: AgentRunResult,
-) -> dict[str, Any]:
-    evidence = extract_evidence_from_traces(
-        [market_analyst.tool_traces, company_analyst.tool_traces, sentiment_simulator.tool_traces, comparison_analyst.tool_traces, price_committee.tool_traces]
+def is_low_signal_research_text(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return True
+    if stripped.strip(" -*•|\t") in SHORT_SITE_CHROME_TOKENS:
+        return True
+    chrome_hits = sum(1 for token in SITE_CHROME_TOKENS if token in stripped)
+    if chrome_hits >= 2:
+        return True
+    if "标签添加class" in stripped:
+        return True
+    disclosure_boilerplate = (
+        "证券代码" in stripped and ("公告编号" in stripped or "证券简称" in stripped) and len(stripped) < 80
     )
-    market_points = derive_points(market_analyst.content, evidence, "行业")
-    company_points = derive_points(company_analyst.content, evidence, "公司")
-    sentiment_points = derive_points(sentiment_simulator.content, evidence, "叙事")
-    comparison_points = derive_points(comparison_analyst.content, evidence, "可比")
-    debate_points = derive_points(committee_red_team.content, evidence, "质询")
-    committee_points = derive_points(guru_council.content, evidence, "委员会")
-    scenario_points = derive_points(mirofish_scenario_engine.content, evidence, "情景")
-    target_prices = extract_target_prices_from_text(price_committee.content)
-
-    return {
-        "company_name": stock_name,
-        "ticker": ticker or stock_name,
-        "exchange": "SSE" if (ticker or "").endswith(".SH") else "",
-        "market": market,
-        "quick_take": (
-            f"{stock_name} 当前更适合作为 watchlist 持续研究。"
-            "多 agent 联网搜索支持其位于中国高端制造/自动化升级叙事里，但订单质量、客户结构与估值锚仍需继续核验。"
-        ),
-        "verdict": "watchlist",
-        "confidence": "medium",
-        "market_map": "\n".join(market_points[:3]) or "行业景气度、资本开支周期与客户需求仍需补证。",
-        "business_summary": "\n".join(company_points[:3]) or "公司业务定位、客户结构与订单质量仍需继续核验。",
-        "china_story": angle or "中国故事",
-        "sentiment_simulation": "\n".join(sentiment_points[:4]) or "公开叙事显示市场关注点分散，短期预期仍在博弈中。",
-        "peer_comparison": "\n".join(comparison_points[:4]) or "缺少高质量可比公司与估值锚，横向比较仍需继续补证。",
-        "committee_takeaways": "\n".join(committee_points[:4]) or "委员会仍然倾向把它放在 watchlist，而不是直接进入高确信仓位。",
-        "scenario_outlook": "\n".join(scenario_points[:6]) or "base case 仍然是观察名单，bull case 取决于半导体订单放量，bear case 取决于苹果链继续走弱。",
-        "debate_notes": "\n".join(debate_points[:4]) or "当前最大的断点在订单质量、客户集中度与估值锚是否成立。",
-        "bull_case": company_points[:5] or ["国产替代与先进制造升级叙事具备继续研究价值。"],
-        "bear_case": build_risk_like_points(company_points, sentiment_points, prefix="反方")[:5]
-        or ["客户集中、订单持续性与景气波动可能压制估值重估。"],
-        "catalysts": build_catalyst_points(company_points, market_points)[:5]
-        or ["后续订单、客户扩张或行业资本开支回暖是关键观察点。"],
-        "risks": build_risk_like_points(company_points, market_points, prefix="风险")[:5]
-        or ["行业需求波动、验证不足与估值锚不清晰仍是主要风险。"],
-        "valuation_view": "当前公开证据更适合建立观察名单，而不是直接给出高确信估值结论。",
-        "target_prices": target_prices,
-        "evidence": evidence[:10],
-        "next_questions": [
-            "公司当前收入与订单中，半导体/先进制造相关占比有多高？",
-            "核心客户集中度与订单可持续性是否正在改善？",
-            "资本开支周期拐点是否已经开始传导到新接订单与利润率？",
-        ],
-    }
+    if disclosure_boilerplate:
+        return True
+    boilerplate_tokens = (
+        "本公司董事会",
+        "保证年度报告内容的真实性",
+        "不存在虚假记载",
+        "董事会及董事",
+        "所有董事均已出席",
+        "董事会决议通过",
+        "全文类型 --全部--",
+    )
+    if any(isinstance(token, str) and token in stripped for token in boilerplate_tokens):
+        return True
+    if "公司代码" in stripped and "公司简称" in stripped and len(stripped) < 100:
+        return True
+    if len(stripped) <= 32 and chrome_hits:
+        return True
+    research_tokens = (
+        "收入",
+        "订单",
+        "客户",
+        "利润",
+        "毛利",
+        "现金流",
+        "半导体",
+        "设备",
+        "估值",
+        "风险",
+        "增长",
+        "下滑",
+        "国产替代",
+        "公告",
+        "年报",
+        "产能",
+        "研发",
+        "市场",
+        "竞争",
+        "催化",
+    )
+    if chrome_hits and not any(token in stripped for token in research_tokens):
+        return True
+    return False
 
 
 def load_memory_context(*, memory_dir: Path, stock_name: str, ticker: str | None) -> MemoryContext | None:
@@ -4189,7 +4371,7 @@ def derive_points(text: str, evidence: list[dict[str, str]], keyword: str) -> li
 
 def build_risk_like_points(primary: list[str], secondary: list[str], *, prefix: str) -> list[str]:
     points: list[str] = []
-    for item in [*primary, *secondary]:
+    for item in iter_research_fragments([*primary, *secondary]):
         if not item:
             continue
         if any(token in item for token in ["风险", "波动", "不确定", "集中", "下滑", "压力", "质疑", "回落"]):
@@ -4201,7 +4383,7 @@ def build_risk_like_points(primary: list[str], secondary: list[str], *, prefix: 
 
 def build_catalyst_points(primary: list[str], secondary: list[str]) -> list[str]:
     points: list[str] = []
-    for item in [*primary, *secondary]:
+    for item in iter_research_fragments([*primary, *secondary]):
         if not item:
             continue
         if any(token in item for token in ["订单", "扩产", "升级", "渗透", "回暖", "增长", "突破", "催化"]):
@@ -4211,37 +4393,73 @@ def build_catalyst_points(primary: list[str], secondary: list[str]) -> list[str]
 
 def select_positive_points(items: list[str]) -> list[str]:
     tokens = ("增长", "提升", "扩张", "突破", "回暖", "改善", "渗透", "供货", "导入", "受益")
-    return [item for item in items if any(token in item for token in tokens)]
+    return [item for item in iter_research_fragments(items) if any(token in item for token in tokens)]
 
 
 def select_negative_points(items: list[str]) -> list[str]:
     tokens = ("下滑", "回落", "质疑", "压力", "集中", "不足", "波动", "风险", "不确定", "脆弱")
-    return [item for item in items if any(token in item for token in tokens)]
+    return [item for item in iter_research_fragments(items) if any(token in item for token in tokens)]
 
 
 def select_catalyst_points(items: list[str]) -> list[str]:
     tokens = ("订单", "扩产", "新品", "客户", "回暖", "催化", "导入", "放量", "改善")
-    return [item for item in items if any(token in item for token in tokens)]
+    return [item for item in iter_research_fragments(items) if any(token in item for token in tokens)]
 
 
 def select_risk_points(items: list[str]) -> list[str]:
     tokens = ("客户集中", "下滑", "回落", "估值", "不确定", "风险", "脆弱", "景气", "压力")
-    return [item for item in items if any(token in item for token in tokens)]
+    return [item for item in iter_research_fragments(items) if any(token in item for token in tokens)]
 
 
-def choose_section_text(value: str, fallback: str, default: str) -> str:
-    text = value.strip()
+def iter_research_fragments(items: list[str]) -> list[str]:
+    fragments: list[str] = []
+    for item in items:
+        for fragment in split_signal_fragments(str(item)):
+            cleaned = clean_research_line(fragment)
+            if cleaned and cleaned not in fragments:
+                fragments.append(cleaned)
+    return fragments
+
+
+def choose_section_text(value: str, fallback: str, default: str, *, market: str = "CN") -> str:
+    text = clean_research_summary(value)
+    fallback_text = clean_research_summary(fallback)
     if is_low_quality_section(text):
-        text = fallback.strip()
-    return text or fallback or default
+        text = fallback_text
+    if contains_market_mismatch_template(text, market):
+        text = fallback_text
+    if contains_market_mismatch_template(text, market):
+        text = ""
+    if contains_market_mismatch_template(fallback_text, market):
+        fallback_text = ""
+    return text or fallback_text or default
+
+
+def contains_market_mismatch_template(text: str, market: str) -> bool:
+    if market.upper() == "CN":
+        return False
+    return any(
+        token in text
+        for token in (
+            "中国高端制造",
+            "半导体设备",
+            "先进制造设备资产",
+            "苹果链",
+            "国产替代",
+            "客户集中度是否真的下降",
+        )
+    )
 
 
 def choose_section_list(value: list[str], fallback: list[str]) -> list[str]:
-    cleaned = [item for item in value if item.strip()]
-    cleaned = [item for item in cleaned if not looks_like_title_stub(item)]
+    cleaned = filter_research_bullets([item for item in value if item.strip()])
     if len(cleaned) <= 1 and any("：" in item or "_" in item or "http" in item.lower() for item in cleaned):
         cleaned = []
-    return cleaned or fallback
+    return cleaned or filter_research_bullets(fallback)
+
+
+def filter_market_mismatch_items(items: list[str], market: str) -> list[str]:
+    return [item for item in items if not contains_market_mismatch_template(item, market)]
 
 
 def is_low_quality_section(text: str) -> bool:
@@ -4251,9 +4469,14 @@ def is_low_quality_section(text: str) -> bool:
     lines = [line.strip() for line in stripped.splitlines() if line.strip()]
     if not lines:
         return True
+    joined = " ".join(lines[:4]).strip()
+    if re.fullmatch(r"(?:Published:?\s*)?(?:20\d{2}[-T:+0-9 ]+)?\s*(?:UNITED STATES)?", joined, flags=re.IGNORECASE):
+        return True
+    if len(joined) < 80 and any(token in joined.lower() for token in ("published:", "type: low content", "low content")):
+        return True
     low_signal = 0
     for line in lines[:4]:
-        if any(token in line for token in ["_新浪", "_股票频道", "同花顺", "中财网", "证券之星", "股吧", "理杏仁", "九方智投", "http"]):
+        if any(token in line for token in [*SITE_CHROME_TOKENS, "_新浪", "_股票频道", "同花顺", "中财网", "证券之星", "股吧", "理杏仁", "九方智投", "http"]):
             low_signal += 1
     return low_signal >= max(2, min(3, len(lines)))
 
@@ -4268,12 +4491,13 @@ def iter_tool_result_candidates(result: dict[str, Any]) -> list[dict[str, str]]:
             url = str(item.get("url") or item.get("link") or "").strip()
             if not url or is_blocked_source(url):
                 continue
-            title = clip_text(str(item.get("title") or item.get("name") or url or "Untitled source").strip(), 160)
-            claim = clip_text(sanitize_source_text(str(item.get("content") or item.get("snippet") or item.get("text") or "").strip()), 420)
+            title = clean_source_title(str(item.get("title") or item.get("name") or url or "Untitled source").strip(), url=url)
+            claim = clip_text(clean_evidence_claim(str(item.get("content") or item.get("snippet") or item.get("text") or "").strip()), 420)
             quality = source_quality_score(url)
-            if quality < MIN_SOURCE_QUALITY:
+            if quality < MIN_SOURCE_QUALITY or is_low_signal_research_text(claim or title):
                 continue
             if url:
+                source_date = extract_source_date(f"{title} {claim} {url}")
                 candidates.append(
                     {
                         "title": title,
@@ -4282,14 +4506,17 @@ def iter_tool_result_candidates(result: dict[str, Any]) -> list[dict[str, str]]:
                         "stance": "neutral",
                         "domain": source_domain(url),
                         "quality": str(quality),
+                        "source_date": source_date or "",
+                        "retrieved_at": datetime.now(UTC).isoformat(),
                     }
                 )
     url = str(result.get("url") or "").strip()
     if url and not is_blocked_source(url):
-        title = clip_text(str(result.get("title") or result.get("name") or url).strip(), 160)
-        claim = clip_text(sanitize_source_text(str(result.get("content") or result.get("text") or result.get("excerpt") or "").strip()), 420)
+        title = clean_source_title(str(result.get("title") or result.get("name") or url).strip(), url=url)
+        claim = clip_text(clean_evidence_claim(str(result.get("content") or result.get("text") or result.get("excerpt") or "").strip()), 420)
         quality = source_quality_score(url)
-        if quality >= MIN_SOURCE_QUALITY:
+        if quality >= MIN_SOURCE_QUALITY and not is_low_signal_research_text(claim or title):
+            source_date = extract_source_date(f"{title} {claim} {url}")
             candidates.append(
                 {
                     "title": title,
@@ -4298,6 +4525,8 @@ def iter_tool_result_candidates(result: dict[str, Any]) -> list[dict[str, str]]:
                     "stance": "neutral",
                     "domain": source_domain(url),
                     "quality": str(quality),
+                    "source_date": source_date or "",
+                    "retrieved_at": datetime.now(UTC).isoformat(),
                 }
             )
     candidates.sort(key=evidence_sort_key, reverse=True)
@@ -4318,10 +4547,22 @@ def source_quality_score(url: str) -> int:
     domain = source_domain(url)
     if not domain:
         return 50
+    try:
+        parsed_path = urlparse(url).path.lower()
+    except Exception:
+        parsed_path = ""
+    exact_overrides = {key.lower().lstrip("www."): score for key, score in DOMAIN_QUALITY_OVERRIDES.items()}
+    if domain in exact_overrides:
+        score = exact_overrides[domain]
+        if "aiassist" in parsed_path:
+            return min(score, 34)
+        return score
     for key, score in DOMAIN_QUALITY_OVERRIDES.items():
         normalized_key = key.lower().lstrip("www.")
-        if domain == normalized_key or domain.endswith(f".{normalized_key}"):
+        if domain.endswith(f".{normalized_key}"):
             return score
+    if "aiassist" in parsed_path:
+        return 34
     if domain.endswith(".gov") or domain.endswith(".gov.cn"):
         return 90
     if any(token in domain for token in ("exchange", "investor", "ir.", "sec.", "cninfo", "hkexnews")):
@@ -4340,11 +4581,63 @@ def is_blocked_source(url: str) -> bool:
     return any(domain == blocked or domain.endswith(f".{blocked}") for blocked in BLOCKED_SOURCE_DOMAINS)
 
 
-def evidence_sort_key(item: dict[str, str]) -> tuple[int, int, int]:
+def extract_source_date(text: str) -> str:
+    haystack = str(text or "")
+    patterns = (
+        r"(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})日?",
+        r"(20\d{2})[-/.年](\d{1,2})月?",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, haystack)
+        if not match:
+            continue
+        year = int(match.group(1))
+        month = int(match.group(2))
+        day = int(match.group(3)) if match.lastindex and match.lastindex >= 3 else 1
+        try:
+            return datetime(year, month, day, tzinfo=UTC).date().isoformat()
+        except ValueError:
+            continue
+    year_match = re.search(r"\b(20\d{2})\b", haystack)
+    if year_match:
+        return f"{year_match.group(1)}-01-01"
+    return ""
+
+
+def evidence_freshness_score(item: dict[str, str], *, now: datetime | None = None) -> int:
+    reference = now or datetime.now(UTC)
+    text = " ".join(
+        str(item.get(key) or "")
+        for key in ("source_date", "retrieved_at", "title", "claim", "url")
+    )
+    source_date = str(item.get("source_date") or extract_source_date(text) or "").strip()
+    score = 0
+    if source_date:
+        try:
+            parsed = datetime.fromisoformat(source_date.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=UTC)
+            age_days = max(0, (reference - parsed).days)
+            if age_days <= 120:
+                score = 40
+            elif age_days <= 365:
+                score = 30
+            elif age_days <= 730:
+                score = 16
+            elif parsed.year == reference.year - 2:
+                score = 8
+        except ValueError:
+            score = 0
+    if any(token in text for token in ("最新", "近期", "公告", "季报", "业绩预告", "订单", "合同", "调研", "回购")):
+        score += 6
+    return min(score, 50)
+
+
+def evidence_sort_key(item: dict[str, str]) -> tuple[int, int, int, int]:
     quality = int(str(item.get("quality") or "0"))
     claim_len = len(str(item.get("claim") or ""))
     official_bonus = 1 if quality >= 85 else 0
-    return quality, official_bonus, claim_len
+    return quality + evidence_freshness_score(item), official_bonus, evidence_freshness_score(item), claim_len
 
 
 def infer_expected_tokens(agent_traces: list[list[dict[str, Any]]]) -> set[str]:
@@ -4355,6 +4648,14 @@ def infer_expected_tokens(agent_traces: list[list[dict[str, Any]]]) -> set[str]:
             if not isinstance(arguments, dict):
                 continue
             query = str(arguments.get("query") or arguments.get("url") or "")
+            known_identity = resolve_known_company_alias(query, "") or resolve_known_company_alias_in_text(query, "")
+            if known_identity:
+                tokens.add(known_identity["ticker"].upper())
+                tokens.add(known_identity["company_name"].upper())
+                tokens.add(known_identity["company_name"])
+            for match in re.findall(r"\b[A-Z]{1,5}\b", query):
+                if match not in {"THE", "AND", "FOR", "SEC", "CEO", "CFO", "AI", "US"}:
+                    tokens.add(match)
             for match in re.findall(r"\b\d{6}(?:\.(?:SH|SZ))?\b", query, flags=re.IGNORECASE):
                 tokens.add(match.upper())
                 tokens.add(match.split(".", 1)[0].upper())
@@ -4377,13 +4678,16 @@ def is_relevant_candidate(candidate: dict[str, str], expected_tokens: set[str]) 
         ]
     )
     normalized_haystack = haystack.upper()
-    if any(token.upper() in normalized_haystack for token in expected_tokens):
+    has_expected_token = any(token.upper() in normalized_haystack for token in expected_tokens)
+    if has_expected_token:
         return True
     quality = int(str(candidate.get("quality") or "0"))
     official_like = quality >= 85 or any(
         marker in haystack
         for marker in ("审核问询函", "首次公开发行", "回复", "股份有限公司", "招股说明", "年报", "公告")
     )
+    if official_like and any(re.fullmatch(r"[A-Z]{1,5}", token.upper()) for token in expected_tokens):
+        return False
     other_company_match = re.search(r"关于([\u4e00-\u9fff]{3,20}(?:股份有限公司|科技股份有限公司|精密仪器股份有限公司))", haystack)
     if official_like and other_company_match:
         return False
@@ -4407,12 +4711,17 @@ def sanitize_source_text(text: str) -> str:
         "返回 当前位置",
         "企业号",
         "收藏",
+        "标签添加class",
     )
-    for raw_line in re.split(r"[\r\n]+", stripped):
-        line = re.sub(r"\s+", " ", raw_line).strip(" -|\t")
-        if not line or len(line) < 6:
+    normalized = re.sub(r"标签添加class=[^。；\n]{0,180}", " ", stripped)
+    normalized = re.sub(r"(?:佛学|游戏|旅游|邮箱|导航|汽车|教育|时尚|女性|星座|健康)(?:\s+[\u4e00-\u9fff]{2,6}){2,12}", " ", normalized)
+    for raw_line in re.split(r"[\r\n]+|\s+/\s+|\s+-\s+", normalized):
+        line = re.sub(r"\s+", " ", raw_line).strip(" -*•|\t")
+        if not line or len(line) < 4:
             continue
         if any(token in line for token in noise_tokens):
+            continue
+        if looks_like_navigation_noise(line) or is_low_signal_research_text(line):
             continue
         if line in seen:
             continue
@@ -4422,6 +4731,33 @@ def sanitize_source_text(text: str) -> str:
             break
     compact = "\n".join(lines[:4]).strip()
     return compact or stripped[:260].strip()
+
+
+def clean_source_title(title: str, *, url: str = "") -> str:
+    text = re.sub(r"\s+", " ", title).strip()
+    if not text:
+        return source_domain(url) or "Untitled source"
+    text = re.split(r"\|", text, maxsplit=1)[0].strip()
+    text = re.split(r"(?:_新浪财经|_新浪网|_股票频道|_东方财富网|_证券之星|_中财网| \| Nasdaq| \| Reuters)", text, maxsplit=1, flags=re.IGNORECASE)[0].strip()
+    text = re.sub(r"\|.*(?:新浪|东方财富|股吧|中财网|证券之星).*$", "", text).strip()
+    text = re.sub(r"\s{2,}", " ", text).strip(" -_|")
+    if not text:
+        return source_domain(url) or "Evidence source"
+    if "标签添加class" in text or sum(1 for token in SITE_CHROME_TOKENS if token in text) >= 2:
+        return source_domain(url) or "Evidence source"
+    if len(text) < 20 and any(token in text for token in SITE_CHROME_TOKENS):
+        return source_domain(url) or "Evidence source"
+    return clip_text(text, 160)
+
+
+def clean_evidence_claim(claim: str) -> str:
+    cleaned = clean_research_summary(claim)
+    if cleaned:
+        return clip_text(cleaned, 420)
+    cleaned = sanitize_source_text(claim)
+    if is_low_signal_research_text(cleaned):
+        return ""
+    return clip_text(cleaned, 420)
 
 
 def extract_target_prices_from_text(text: str) -> dict[str, dict[str, str]]:
@@ -4440,6 +4776,8 @@ def extract_target_prices_from_text(text: str) -> dict[str, dict[str, str]]:
     }
     for raw_line in text.splitlines():
         line = clean_research_line(raw_line)
+        if not line and "目标价" in raw_line:
+            line = re.sub(r"^[#\-\s*•]+", "", raw_line.replace("```", "").strip()).strip()
         if not line:
             continue
         normalized_line = line.lstrip("-• ").strip()
@@ -4454,7 +4792,7 @@ def extract_target_prices_from_text(text: str) -> dict[str, dict[str, str]]:
                 row_key = "long_term"
             if row_key:
                 cells = [cell.strip(" *") for cell in normalized_line.split("|") if cell.strip(" *")]
-                price = midpoint_price(cells[1]) if len(cells) > 1 else ""
+                price = (target_price_value_from_text(cells[1]) or midpoint_price(cells[1])) if len(cells) > 1 else ""
                 horizon = extract_horizon_from_text(cells[3] if len(cells) > 3 else normalized_line)
                 thesis = clean_research_line(cells[4] if len(cells) > 4 else normalized_line)
                 buckets[row_key] = {
@@ -4465,14 +4803,25 @@ def extract_target_prices_from_text(text: str) -> dict[str, dict[str, str]]:
                 continue
         if not matched_key:
             continue
-        price_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:元|人民币|RMB)", normalized_line)
+        if "目标价" not in normalized_line and not target_price_value_from_text(normalized_line):
+            continue
         thesis = normalized_line
         if "：" in thesis:
             thesis = thesis.split("：", 1)[1].strip()
         elif ":" in thesis:
             thesis = thesis.split(":", 1)[1].strip()
+        price = target_price_value_from_text(normalized_line) or midpoint_price(normalized_line)
+        original_range = target_price_range_from_text(normalized_line)
+        if price and original_range and ("时间轴" in thesis or "|" in thesis):
+            thesis = f"价格委员会情景区间中点；原始区间：{original_range}。"
+        if buckets.get(matched_key, {}).get("price") and (
+            "目标价" not in normalized_line or any(token in normalized_line for token in ("下调", "触发", "跌破", "不可达", "上修至"))
+        ):
+            continue
+        if not price and buckets.get(matched_key, {}).get("price"):
+            continue
         buckets[matched_key] = {
-            "price": price_match.group(1) if price_match else midpoint_price(normalized_line),
+            "price": price or buckets.get(matched_key, {}).get("price", ""),
             "horizon": extract_horizon_from_text(normalized_line),
             "thesis": thesis,
         }
@@ -4484,9 +4833,9 @@ def normalize_target_prices(
     fallback: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, dict[str, str]]:
     base = {
-        "short_term": {"price": "", "horizon": "1-3个月", "thesis": "等待近期订单、客户与情绪验证。"},
-        "medium_term": {"price": "", "horizon": "3-12个月", "thesis": "观察收入结构迁移与估值锚是否抬升。"},
-        "long_term": {"price": "", "horizon": "12-36个月", "thesis": "判断是否能沉淀为更高质量的先进制造设备资产。"},
+        "short_term": {"price": "", "horizon": "1-3个月", "thesis": "等待近期业绩、公告、资金面与情绪验证。"},
+        "medium_term": {"price": "", "horizon": "3-12个月", "thesis": "观察基本面趋势、估值锚与行业景气度是否同步改善。"},
+        "long_term": {"price": "", "horizon": "12-36个月", "thesis": "判断公司质量、增长韧性与资本回报是否足以支撑长期重估。"},
     }
     for source in [fallback or {}, value if isinstance(value, dict) else {}]:
         for key in ("short_term", "medium_term", "long_term"):
@@ -4496,13 +4845,68 @@ def normalize_target_prices(
             price = str(raw.get("price") or "").strip()
             horizon = str(raw.get("horizon") or "").strip()
             thesis = clean_research_line(str(raw.get("thesis") or "").strip())
-            if price:
+            if price and not is_plausible_target_price(price):
+                continue
+            if price and is_plausible_target_price(price):
                 base[key]["price"] = price
             if horizon:
                 base[key]["horizon"] = horizon
             if thesis:
                 base[key]["thesis"] = thesis
     return base
+
+
+def is_plausible_target_price(value: str) -> bool:
+    try:
+        numeric = float(str(value).replace(",", "").strip())
+    except ValueError:
+        return False
+    return 0.01 <= numeric <= 10000
+
+
+def target_price_value_from_text(text: str) -> str:
+    target_segment = text
+    if "目标价" in target_segment:
+        target_segment = re.split(r"目标价", target_segment, maxsplit=1)[-1]
+    elif "目标" in target_segment:
+        target_segment = re.split(r"目标", target_segment, maxsplit=1)[-1]
+    pattern = re.compile(
+        r"[$＄¥￥]?\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*"
+        r"(?:[-–—~至到]\s*[$＄¥￥]?\s*(\d+(?:,\d{3})*(?:\.\d+)?))?\s*"
+        r"(?:美元|USD|元|人民币|RMB)?",
+        re.IGNORECASE,
+    )
+    for match in pattern.finditer(target_segment):
+        full = match.group(0)
+        if not any(token in full for token in ("$", "＄", "¥", "￥", "美元", "USD", "元", "人民币", "RMB")):
+            continue
+        first = float(match.group(1).replace(",", ""))
+        second = float(match.group(2).replace(",", "")) if match.group(2) else first
+        if not (0.01 <= first <= 10000 and 0.01 <= second <= 10000):
+            continue
+        if first != second:
+            return f"{((first + second) / 2):.2f}".rstrip("0").rstrip(".")
+        return f"{first:g}"
+    return ""
+
+
+def target_price_range_from_text(text: str) -> str:
+    target_segment = text
+    if "目标价" in target_segment:
+        target_segment = re.split(r"目标价", target_segment, maxsplit=1)[-1]
+    elif "目标" in target_segment:
+        target_segment = re.split(r"目标", target_segment, maxsplit=1)[-1]
+    match = re.search(
+        r"([$＄¥￥]?\s*\d+(?:,\d{3})*(?:\.\d+)?)\s*[-–—~至到]\s*([$＄¥￥]?\s*\d+(?:,\d{3})*(?:\.\d+)?)",
+        target_segment,
+    )
+    if not match:
+        return ""
+    left = re.sub(r"\s+", "", match.group(1))
+    right = re.sub(r"\s+", "", match.group(2))
+    if left[0] in "$＄¥￥" and right[0] not in "$＄¥￥":
+        right = left[0] + right
+    return f"{left}-{right}"
 
 
 def midpoint_price(text: str) -> str:
@@ -4522,15 +4926,17 @@ def extract_horizon_from_text(text: str) -> str:
 
 def extract_current_price_from_text(text: str) -> float | None:
     patterns = [
-        r"当前价格基准[：:]\s*[¥￥]?\s*(\d+(?:\.\d+)?)",
+        r"当前价格基准[：:]\s*[$＄¥￥]?\s*(\d+(?:,\d{3})*(?:\.\d+)?)",
+        r"current price(?: basis)?[：:\s]+[$＄¥￥]?\s*(\d+(?:,\d{3})*(?:\.\d+)?)",
         r"\b(\d+(?:\.\d+)?)↑",
-        r"\b(\d+(?:\.\d+)?)\s*(?:元|人民币|RMB)\b",
+        r"[$＄]\s*(\d+(?:,\d{3})*(?:\.\d+)?)\b",
+        r"\b(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:元|人民币|RMB|美元|USD)\b",
     ]
     for pattern in patterns:
         match = re.search(pattern, text)
         if match:
             try:
-                value = float(match.group(1))
+                value = float(match.group(1).replace(",", ""))
             except ValueError:
                 continue
             if 1 <= value <= 10000:
@@ -4595,6 +5001,33 @@ def fill_missing_target_prices(
             target["horizon"] = str(backup.get("horizon") or "").strip()
         if (not str(target.get("thesis") or "").strip() or "继续核实" in str(target.get("thesis") or "")) and backup:
             target["thesis"] = str(backup.get("thesis") or "").strip()
+        base[key] = target
+    return base
+
+
+def count_target_price_values(value: dict[str, dict[str, str]]) -> int:
+    return sum(
+        1
+        for key in ("short_term", "medium_term", "long_term")
+        if is_plausible_target_price(str((value.get(key) or {}).get("price") or "").strip())
+    )
+
+
+def overlay_preferred_target_prices(
+    base: dict[str, dict[str, str]],
+    preferred: dict[str, dict[str, str]],
+) -> dict[str, dict[str, str]]:
+    for key in ("short_term", "medium_term", "long_term"):
+        candidate = preferred.get(key) or {}
+        price = str(candidate.get("price") or "").strip()
+        if not is_plausible_target_price(price):
+            continue
+        target = dict(base.get(key) or {})
+        target["price"] = price
+        if str(candidate.get("horizon") or "").strip():
+            target["horizon"] = str(candidate.get("horizon") or "").strip()
+        if str(candidate.get("thesis") or "").strip():
+            target["thesis"] = str(candidate.get("thesis") or "").strip()
         base[key] = target
     return base
 
@@ -5011,6 +5444,7 @@ def render_markdown(
     quick_take: str,
     verdict: str,
     confidence: str,
+    recent_developments: str,
     market_map: str,
     business_summary: str,
     china_story: str,
@@ -5066,6 +5500,9 @@ def render_markdown(
             "",
             "## 快速判断",
             quick_take,
+            "",
+            "## 最新实效信息与波动线索",
+            recent_developments or "近期实效信息仍需继续补证；当前更适合先用历史资料判断底蕴，再用后续公告和消息流跟踪边际变化。",
             "",
             "## 业务概览",
             business_summary,
@@ -5157,10 +5594,47 @@ def looks_like_stock_identifier(value: str, market: str) -> bool:
     return bool(re.fullmatch(r"[A-Z0-9.\-]{1,12}", normalized.upper()))
 
 
+def company_alias_key(value: str) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip().lower()
+    return re.sub(r"[^a-z0-9\u4e00-\u9fff ]+", "", text).strip()
+
+
+def resolve_known_company_alias(value: str, market: str) -> dict[str, str] | None:
+    key = company_alias_key(value)
+    if not key:
+        return None
+    match = COMMON_COMPANY_ALIASES.get(key)
+    if not match:
+        compact_key = key.replace(" ", "")
+        match = COMMON_COMPANY_ALIASES.get(compact_key)
+    if not match:
+        return None
+    normalized_market = normalize_market_hint(market or match["market"])
+    if normalized_market and normalized_market != match["market"]:
+        return None
+    return dict(match)
+
+
+def resolve_known_company_alias_in_text(value: str, market: str = "") -> dict[str, str] | None:
+    haystack = company_alias_key(value)
+    if not haystack:
+        return None
+    for alias, identity in COMMON_COMPANY_ALIASES.items():
+        alias_key = company_alias_key(alias)
+        if alias_key and alias_key in haystack:
+            normalized_market = normalize_market_hint(market or identity["market"])
+            if normalized_market == identity["market"]:
+                return dict(identity)
+    return None
+
+
 def resolve_research_request(*, identifier: str, ticker: str | None, market: str, market_positional: str | None = None) -> dict[str, str | None]:
-    resolved_market = (market or market_positional or "CN").strip().upper() or "CN"
+    resolved_market = normalize_market_hint(market or market_positional or "CN")
     clean_identifier = identifier.strip()
     ticker_hint = (ticker or "").strip()
+    known_identity = resolve_known_company_alias(clean_identifier, resolved_market)
+    if known_identity and not ticker_hint:
+        return {"stock_name": known_identity["company_name"], "ticker": known_identity["ticker"], "market": known_identity["market"]}
     if ticker_hint:
         resolved_ticker = normalize_ticker(ticker_hint, "", resolved_market)
         stock_name = clean_identifier or resolved_ticker
@@ -5169,6 +5643,29 @@ def resolve_research_request(*, identifier: str, ticker: str | None, market: str
         resolved_ticker = normalize_ticker(clean_identifier, "", resolved_market)
         return {"stock_name": resolved_ticker, "ticker": resolved_ticker, "market": resolved_market}
     return {"stock_name": clean_identifier, "ticker": None, "market": resolved_market}
+
+
+def normalize_market_hint(value: str) -> str:
+    text = re.sub(r"\s+", "", str(value or "")).upper()
+    aliases = {
+        "中国": "CN",
+        "中国大陆": "CN",
+        "大陆": "CN",
+        "A股": "CN",
+        "沪深": "CN",
+        "CHINA": "CN",
+        "CN": "CN",
+        "美国": "US",
+        "美股": "US",
+        "USA": "US",
+        "UNITEDSTATES": "US",
+        "US": "US",
+        "香港": "HK",
+        "港股": "HK",
+        "HONGKONG": "HK",
+        "HK": "HK",
+    }
+    return aliases.get(text, text or "CN")
 
 
 def normalize_ticker(value: str, exchange: Any, market: str) -> str:
@@ -5181,5 +5678,9 @@ def normalize_ticker(value: str, exchange: Any, market: str) -> str:
         if exchange_text in {"SSE", "SH", "SHSE"}:
             return f"{digits}.SH"
         if exchange_text in {"SZSE", "SZ"}:
+            return f"{digits}.SZ"
+        if len(digits) == 6 and digits.startswith(("5", "6", "9")):
+            return f"{digits}.SH"
+        if len(digits) == 6 and digits.startswith(("0", "1", "2", "3")):
             return f"{digits}.SZ"
     return digits or text

@@ -14,6 +14,7 @@ Turn one ticker or one theme into a staged research process:
 
 Open the fastest public examples:
 
+- [Project Showcase](docs/showcase.md)
 - [Sample Research Memo](docs/sample-memo.md)
 - [Case Study: SaiTeng](docs/case-study-saiteng.md)
 - [Sample Screening Summary](docs/sample-screening.md)
@@ -38,8 +39,15 @@ In practice, that means you can use it in four ways:
 | --- | --- | --- |
 | One stock, full debate-oriented memo | terminal CLI | single desktop DOCX + internal JSON |
 | Theme triage before expensive deep work | terminal CLI | screening DOCX + finalist memos |
-| Hands-off recurring refreshes | watchlist + mailbox | digest DOCX + refreshed memos |
+| Hands-off recurring refreshes | watchlist + mailbox | refreshed stock memos + internal queue state |
 | Codex as planner and main brain | Codex skill | same single-document delivery, different host path |
+
+## Why Star It
+
+- It turns one ticker or one theme into a reusable research routine instead of a one-off chat.
+- It makes disagreement visible through red-team, guru-council, and scenario passes.
+- It keeps final delivery clean: one desktop DOCX for people, hidden JSON / memory state for machines.
+- It stays honest about scope: no trading, no backtesting, no local-template fallback pretending to be a finished memo.
 
 ## What It Is
 
@@ -110,7 +118,7 @@ It is intentionally narrow:
 
 - a staged single-name memo instead of a one-shot summary
 - sector screening with initial scout, second-screen council, and finalist deep dives
-- recurring watchlist refreshes with digest generation
+- recurring watchlist refreshes with internal queue state and refreshed stock memo delivery
 - one desktop DOCX deliverable with separate Chinese and English sections
 - JSON artifacts for follow-up automation
 
@@ -145,10 +153,18 @@ The CLI auto-loads the local `.env` file from the repo root, so you do not need 
 Run a first memo:
 
 ```bash
-./bin/research-stock 603283.SH CN --angle "中国故事"
+./bin/research-stock 赛腾股份 中国
 ```
 
-You can still use the legacy style when you want to pin a display name:
+You can also use a plain A-share code without manually adding `.SH` / `.SZ`:
+
+```bash
+./bin/research-stock 603283 中国
+```
+
+By default, the desk runs a comprehensive buy-side review across business quality, recent developments, valuation, catalysts, risks, sentiment, peer comparison, and scenario paths. Use `--angle` only when you intentionally want to add a special thesis frame.
+
+Legacy style still works when you want to pin a display name and ticker:
 
 ```bash
 ./bin/research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事"
@@ -181,7 +197,7 @@ That will:
 Add a recurring watchlist entry:
 
 ```bash
-./bin/research-stock watchlist add 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事" --interval 7d
+./bin/research-stock watchlist add 赛腾股份 --market 中国 --interval 7d
 ./bin/research-stock watchlist run-due
 ```
 
@@ -195,9 +211,9 @@ export STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD="your_mailbox_app_password"
 
 Supported email subjects:
 
-- `research: 赛腾股份 | 603283.SH | CN | 中国故事`
-- `screen: 中国机器人 | 3 | CN | 中国故事`
-- `watchlist add: 赛腾股份 | 603283.SH | 7d | CN | 中国故事`
+- `research: 赛腾股份 |  | 中国`
+- `screen: 中国机器人 | 3 | 中国`
+- `watchlist add: 赛腾股份 |  | 7d | 中国`
 - `watchlist list`
 - `watchlist run-due`
 
@@ -210,6 +226,7 @@ Email replies now come back in desk-style formats and attach the final document 
 
 ## Public Samples
 
+- [Project Showcase](docs/showcase.md)
 - [Sample Research Memo](docs/sample-memo.md)
 - [Case Study: SaiTeng](docs/case-study-saiteng.md)
 - [Sample Screening Summary](docs/sample-screening.md)
@@ -268,9 +285,7 @@ For recurring tracking, the product now also maintains:
 
 1. watchlist storage
    Saves cadence, angle, next-run time, and last report path.
-2. digest generation
-   Each due run can emit a watchlist digest into the desktop workspace.
-3. mailbox control
+2. mailbox control
    You can trigger research, screening, and watchlist workflows by email.
 
 ## Codex Skill Mode
@@ -316,7 +331,8 @@ Key variables:
 | --- | --- | --- |
 | `OLLAMA_API_KEY` | required | Ollama Cloud API key |
 | `STOCK_RESEARCH_DESK_HOME` | `~/.stock-research-desk` | hidden internal state, memory, watchlists, and machine artifacts |
-| `STOCK_RESEARCH_DESK_MODEL` | `kimi-k2.5:cloud` | default research model |
+| `STOCK_RESEARCH_DESK_MODEL` | `glm-5.1:cloud` | default research model |
+| `STOCK_RESEARCH_DESK_MODEL_FALLBACKS` | `glm-5.1:cloud,kimi-k2.5:cloud,qwen3.5:cloud` | cloud-only fallback chain; shorthand like `qwen3.5:397b` is normalized to the official `qwen3.5:cloud` runtime tag |
 | `STOCK_RESEARCH_DESK_THINK` | `high` | reasoning depth |
 | `STOCK_RESEARCH_DESK_MAX_RESULTS` | `5` | max web search results per step |
 | `STOCK_RESEARCH_DESK_MAX_FETCHES` | `6` | max page fetches per step |
@@ -339,12 +355,13 @@ The repo now includes explicit source quality control:
 - blocked-source filtering
 - preference for official filings, exchanges, and higher-trust media
 - deduplication and relevance filtering for near-name collisions
-- fallback memo generation from ranked evidence instead of raw noisy traces
+- cloud model fallback before failure; the CLI does not generate a local/template memo when the cloud chain is unavailable
 
 ## Showcase Assets
 
 Useful public-facing assets in this repo:
 
+- [Project Showcase](docs/showcase.md)
 - [Memo Preview](assets/memo-preview.svg)
 - [Briefing Preview](assets/briefing-preview.svg)
 - [Sample Research Memo](docs/sample-memo.md)

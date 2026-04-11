@@ -12,6 +12,7 @@ from stock_research_desk.documents import (
 from stock_research_desk.stock_cli import (
     add_watchlist_entry,
     agent_output_outline,
+    build_cloud_model_chain,
     build_screening_fallback_candidates,
     build_report_document_paths,
     build_seed_candidates,
@@ -40,6 +41,7 @@ from stock_research_desk.stock_cli import (
     build_comparison_fallback_from_evidence,
     build_sentiment_fallback_from_evidence,
     clean_research_summary,
+    chat_with_guard,
     desk_briefing_mode,
     derive_target_prices_from_context,
     derive_role_bullets,
@@ -47,7 +49,9 @@ from stock_research_desk.stock_cli import (
     choose_section_text,
     distill_agent_note,
     evidence_signal_lines,
+    evidence_freshness_score,
     extract_markdown_sections,
+    extract_source_date,
     extract_evidence_from_traces,
     extract_target_prices_from_text,
     load_config,
@@ -57,7 +61,9 @@ from stock_research_desk.stock_cli import (
     merge_screen_candidates,
     merge_seed_candidates,
     normalize_confidence,
+    normalize_cloud_model_name,
     normalize_evidence,
+    normalize_market_hint,
     normalize_report_payload,
     normalize_target_prices,
     normalize_ticker,
@@ -174,12 +180,15 @@ def test_build_english_report_fallback_keeps_english_output_clean() -> None:
             "company_name": "赛腾股份",
             "ticker": "603283.SH",
             "quick_take": "需要继续验证客户结构。",
+            "target_prices": {"short_term": {"price": "45.00", "horizon": "1-3个月", "thesis": "订单验证"}},
             "bull_case": ["订单质量仍待验证。"],
             "evidence": [{"title": "示例", "url": "https://example.com", "claim": "示例结论", "stance": "support"}],
         }
     )
     assert payload["company_name"] == "603283.SH"
     assert "Chinese report" in payload["quick_take"]
+    assert "unavailable" not in payload["quick_take"].lower()
+    assert payload["target_prices"]["short_term"]["horizon"] == "1-3 months"
     assert payload["bull_case"]
 
 
@@ -193,6 +202,21 @@ def test_looks_like_us_ticker_accepts_plain_us_symbols() -> None:
 def test_resolve_research_request_supports_ticker_and_market_only() -> None:
     request = resolve_research_request(identifier="603283.SH", ticker=None, market="", market_positional="CN")
     assert request == {"stock_name": "603283.SH", "ticker": "603283.SH", "market": "CN"}
+
+
+def test_resolve_research_request_supports_plain_name_and_country() -> None:
+    request = resolve_research_request(identifier="赛腾股份", ticker=None, market="", market_positional="中国")
+    assert request == {"stock_name": "赛腾股份", "ticker": None, "market": "CN"}
+
+
+def test_resolve_research_request_supports_plain_cn_code_and_country() -> None:
+    request = resolve_research_request(identifier="603283", ticker=None, market="", market_positional="中国")
+    assert request == {"stock_name": "603283.SH", "ticker": "603283.SH", "market": "CN"}
+
+
+def test_resolve_research_request_corrects_common_us_company_typo() -> None:
+    request = resolve_research_request(identifier="mircosoft", ticker=None, market="", market_positional="美国")
+    assert request == {"stock_name": "Microsoft", "ticker": "MSFT", "market": "US"}
 
 
 def test_resolve_research_request_preserves_legacy_name_and_ticker_flow() -> None:
@@ -241,6 +265,41 @@ def test_normalize_evidence_drops_empty_rows() -> None:
     )
     assert len(evidence) == 1
     assert evidence[0]["title"] == "A"
+
+
+def test_normalize_evidence_filters_low_quality_source_noise() -> None:
+    evidence = normalize_evidence(
+        [
+            {
+                "title": "财富号噪音",
+                "url": "https://caifuhao.eastmoney.com/news/test",
+                "claim": "标签添加class=foo 佛学 游戏 旅游 邮箱 导航",
+                "stance": "neutral",
+            },
+            {
+                "title": "赛腾股份2024年报|赛腾股份_新浪财经_新浪网",
+                "url": "https://www.cninfo.com.cn/new/disclosure/detail",
+                "claim": "赛腾股份半导体设备订单改善仍待客户结构验证。",
+                "stance": "support",
+            },
+        ]
+    )
+    assert len(evidence) == 1
+    assert evidence[0]["title"] == "赛腾股份2024年报"
+    assert "标签添加class" not in evidence[0]["claim"]
+
+
+def test_evidence_freshness_prefers_recent_announcements() -> None:
+    assert extract_source_date("赛腾股份2026年3月15日订单公告") == "2026-03-15"
+    recent = evidence_freshness_score(
+        {"title": "赛腾股份2026年3月15日订单公告", "claim": "近期订单改善", "url": "https://www.cninfo.com.cn/test"},
+        now=datetime.fromisoformat("2026-04-10T00:00:00+00:00"),
+    )
+    older = evidence_freshness_score(
+        {"title": "赛腾股份2023年年度报告", "claim": "历史业务底蕴", "url": "https://www.cninfo.com.cn/old"},
+        now=datetime.fromisoformat("2026-04-10T00:00:00+00:00"),
+    )
+    assert recent > older
 
 
 def test_extract_evidence_from_traces_reads_search_and_fetch_results() -> None:
@@ -303,6 +362,18 @@ def test_sanitize_source_text_drops_navigation_noise() -> None:
     assert "智能制造装备公司" in cleaned
 
 
+def test_sanitize_source_text_drops_css_and_portal_category_noise() -> None:
+    text = """
+    标签添加class=foo bar baz
+    佛学 游戏 旅游 邮箱 导航 汽车 教育 时尚 女性 星座 健康
+    赛腾股份半导体设备订单改善仍待客户结构验证。
+    """
+    cleaned = sanitize_source_text(text)
+    assert "标签添加class" not in cleaned
+    assert "佛学" not in cleaned
+    assert "客户结构验证" in cleaned
+
+
 def test_distill_agent_note_extracts_company_sections() -> None:
     content = """
 ### 业务概览
@@ -352,6 +423,19 @@ def test_clean_research_summary_drops_title_noise() -> None:
     assert "新浪财经" not in summary
     assert "公司从消费电子自动化切入半导体量检测设备。" in summary
     assert "半导体国产替代仍是多头主线。" in summary
+
+
+def test_clean_research_summary_drops_finance_portal_category_noise() -> None:
+    summary = clean_research_summary(
+        """
+        理财| 银行 保险 黄金 外汇 债券 期货 股指期货
+        切换到 电脑版
+        报告要点：深耕消费电子设备，外延并购布局半导体及新能源板块。
+        """
+    )
+    assert "理财" not in summary
+    assert "电脑版" not in summary
+    assert "半导体及新能源板块" in summary
 
 
 def test_distill_red_team_prefers_cleaned_section_over_raw_blob() -> None:
@@ -557,7 +641,20 @@ def test_normalize_report_payload_fills_defaults_and_uses_fallback_evidence() ->
     assert payload["ticker"] == "603283.SH"
     assert payload["verdict"] == "watchlist"
     assert payload["evidence"][0]["title"] == "Source"
+    assert "recent_developments" in payload
     assert "report_markdown" in payload
+
+
+def test_normalize_report_payload_prefers_resolved_company_name_over_ticker_label() -> None:
+    payload = normalize_report_payload(
+        {"company_name": "603283.SH", "ticker": "603283.SH", "evidence": []},
+        stock_name="赛腾股份",
+        ticker="603283.SH",
+        market="CN",
+        angle="中国故事",
+        model="glm-5:cloud",
+    )
+    assert payload["company_name"] == "赛腾股份"
 
 
 def test_render_markdown_includes_multi_agent_sections() -> None:
@@ -570,6 +667,7 @@ def test_render_markdown_includes_multi_agent_sections() -> None:
         quick_take="需要继续补证。",
         verdict="watchlist",
         confidence="medium",
+        recent_developments="最近90天公告与订单线索仍需继续跟踪。",
         market_map="行业景气度与资本开支节奏仍需判断。",
         business_summary="自动化设备公司。",
         china_story="受益于国内高端制造升级。",
@@ -596,6 +694,7 @@ def test_render_markdown_includes_multi_agent_sections() -> None:
     )
     assert "# 赛腾股份 研究备忘录" in markdown
     assert "## 市场与行业图谱" in markdown
+    assert "## 最新实效信息与波动线索" in markdown
     assert "## 舆情与叙事模拟" in markdown
     assert "## 股神议会纪要" in markdown
     assert "## MiroFish 多未来场景" in markdown
@@ -614,6 +713,71 @@ def test_load_config_rejects_localhost(monkeypatch: pytest.MonkeyPatch) -> None:
             max_fetches=4,
             timeout_seconds=45,
             output_dir="reports",
+        )
+
+
+def test_normalize_cloud_model_name_maps_user_shorthand() -> None:
+    assert normalize_cloud_model_name("qwen3.5:397b") == "qwen3.5:cloud"
+    assert normalize_cloud_model_name("gemini-3-flash-preview") == "gemini-3-flash-preview:cloud"
+    assert normalize_cloud_model_name("glm-5.1") == "glm-5.1:cloud"
+
+
+def test_build_cloud_model_chain_uses_default_glm_first(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("STOCK_RESEARCH_DESK_MODEL_FALLBACKS", raising=False)
+    assert build_cloud_model_chain("glm-5.1:cloud") == (
+        "glm-5.1:cloud",
+        "kimi-k2.5:cloud",
+        "qwen3.5:cloud",
+    )
+
+
+def test_build_cloud_model_chain_keeps_primary_first(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("STOCK_RESEARCH_DESK_MODEL_FALLBACKS", "qwen3.5:397b, glm-5.1")
+    assert build_cloud_model_chain("kimi-k2.5:cloud") == (
+        "kimi-k2.5:cloud",
+        "qwen3.5:cloud",
+        "glm-5.1:cloud",
+    )
+
+
+def test_chat_with_guard_falls_back_to_next_cloud_model() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.models: list[str] = []
+
+        def chat(self, **kwargs: object) -> object:
+            model = str(kwargs["model"])
+            self.models.append(model)
+            if model == "kimi-k2.5:cloud":
+                raise RuntimeError("primary unavailable")
+            return object()
+
+    client = FakeClient()
+    result = chat_with_guard(
+        client,  # type: ignore[arg-type]
+        timeout_seconds=1,
+        model_chain=("kimi-k2.5:cloud", "qwen3.5:cloud"),
+        model="kimi-k2.5:cloud",
+        messages=[],
+        think="high",
+    )
+    assert result is not None
+    assert client.models == ["kimi-k2.5:cloud", "qwen3.5:cloud"]
+
+
+def test_chat_with_guard_aborts_after_all_cloud_models_fail() -> None:
+    class FakeClient:
+        def chat(self, **kwargs: object) -> object:
+            raise RuntimeError(f"{kwargs['model']} unavailable")
+
+    with pytest.raises(RuntimeError, match="model chain failed"):
+        chat_with_guard(
+            FakeClient(),  # type: ignore[arg-type]
+            timeout_seconds=1,
+            model_chain=("kimi-k2.5:cloud", "qwen3.5:cloud"),
+            model="kimi-k2.5:cloud",
+            messages=[],
+            think="high",
         )
 
 
@@ -690,10 +854,13 @@ def test_role_prompts_reference_tools_and_dense_outputs() -> None:
 
     assert "web_search" in market_prompt
     assert "Stanley Druckenmiller" in market_prompt
+    assert "最近90天" in market_prompt
     assert "web_fetch" in company_prompt
     assert "Warren Buffett" in company_prompt
+    assert "最新公告" in company_prompt
     assert "成长基金视角" in sentiment_prompt
     assert "Cathie Wood" in sentiment_prompt
+    assert "未来1-3个月" in sentiment_prompt
 
 
 def test_screening_council_prompts_are_multi_stage() -> None:
@@ -861,6 +1028,17 @@ def test_normalize_ticker_adds_china_suffix_from_exchange() -> None:
     assert normalize_ticker("603283", "SSE", "CN") == "603283.SH"
 
 
+def test_normalize_market_hint_accepts_country_names() -> None:
+    assert normalize_market_hint("中国") == "CN"
+    assert normalize_market_hint("美股") == "US"
+    assert normalize_market_hint("香港") == "HK"
+
+
+def test_normalize_ticker_adds_china_suffix_without_exchange() -> None:
+    assert normalize_ticker("603283", "", "CN") == "603283.SH"
+    assert normalize_ticker("300750", "", "CN") == "300750.SZ"
+
+
 def test_parse_interval_hours_supports_hours_days_and_weeks() -> None:
     assert parse_interval_hours("24h") == 24
     assert parse_interval_hours("3d") == 72
@@ -1007,10 +1185,10 @@ def test_load_local_env_file_populates_missing_env(monkeypatch: pytest.MonkeyPat
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
     monkeypatch.delenv("STOCK_RESEARCH_DESK_HOME", raising=False)
     env_path = tmp_path / ".env"
-    env_path.write_text("OLLAMA_API_KEY=test-key\nSTOCK_RESEARCH_DESK_HOME=~/Desktop/Stock Research Desk\n")
+    env_path.write_text("OLLAMA_API_KEY=test-key\nSTOCK_RESEARCH_DESK_HOME=~/.stock-research-desk\n")
     load_local_env_file(env_path)
     assert os.environ["OLLAMA_API_KEY"] == "test-key"
-    assert os.environ["STOCK_RESEARCH_DESK_HOME"].endswith("Desktop/Stock Research Desk")
+    assert os.environ["STOCK_RESEARCH_DESK_HOME"].endswith(".stock-research-desk")
 
 
 def test_load_local_env_file_does_not_override_existing_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -1062,7 +1240,9 @@ def test_run_due_watchlist_updates_next_run(monkeypatch: pytest.MonkeyPatch, tmp
     assert result["processed"] == 1
     assert updated[0]["last_report_path"] == "/tmp/report-zh.docx"
     assert updated[0]["next_run_at"] != "2026-04-01T00:00:00+00:00"
-    assert result["digest_path"].endswith(".docx")
+    assert result["digest_path"] == ""
+    assert result["zh_digest_path"] == ""
+    assert result["en_digest_path"] == ""
 
 
 def test_render_watchlist_digest_markdown_includes_verdict_and_path() -> None:
@@ -1082,15 +1262,18 @@ def test_render_watchlist_digest_markdown_includes_verdict_and_path() -> None:
 
 
 def test_parse_email_command_supports_research_screen_and_watchlist() -> None:
-    research = parse_email_command(subject="research: 赛腾股份 | 603283.SH | CN | 中国故事", body="")
-    screen = parse_email_command(subject="screen: 中国机器人 | 3 | CN | 中国故事", body="")
-    watchlist = parse_email_command(subject="watchlist add: 赛腾股份 | 603283.SH | 7d | CN | 中国故事", body="")
+    research = parse_email_command(subject="research: 赛腾股份 |  | 中国", body="")
+    screen = parse_email_command(subject="screen: 中国机器人 | 3 | 中国", body="")
+    watchlist = parse_email_command(subject="watchlist add: 赛腾股份 |  | 7d | 中国", body="")
     assert research is not None and research["kind"] == "research"
-    assert research["ticker"] == "603283.SH"
+    assert research["ticker"] == ""
+    assert research["market"] == "CN"
     assert screen is not None and screen["kind"] == "screen"
     assert screen["count"] == 3
+    assert screen["market"] == "CN"
     assert watchlist is not None and watchlist["kind"] == "watchlist_add"
     assert watchlist["interval"] == "7d"
+    assert watchlist["market"] == "CN"
 
 
 def test_parse_email_command_supports_watchlist_short_commands() -> None:
@@ -1172,7 +1355,7 @@ def test_render_email_watchlist_digest_reply_uses_briefing_format() -> None:
     body = render_email_watchlist_digest_reply(
         {
             "processed": 2,
-            "digest_path": "/tmp/digest-zh.docx",
+            "digest_path": "",
             "artifacts": [
                 {
                     "identifier": "603283-sh",
@@ -1185,6 +1368,7 @@ def test_render_email_watchlist_digest_reply_uses_briefing_format() -> None:
     )
     assert "Watchlist" in body
     assert "Desk highlights" in body
+    assert "Attached digest" not in body
     assert "target_snapshot" not in body
     assert "ST 45 (1-3个月)" in body
 
@@ -1276,6 +1460,38 @@ def test_extract_target_prices_from_text_reads_price_horizon_and_thesis() -> Non
     assert "订单验证" in payload["short_term"]["thesis"]
 
 
+def test_extract_target_prices_from_text_reads_usd_ranges() -> None:
+    payload = extract_target_prices_from_text(
+        """
+        - 短期（3-6个月）：$395-425，依据：cloud spend and AI sentiment stabilization.
+        - 中期（12-18个月）：$520-580，依据：Azure AI monetization and margin recovery.
+        - 长期（36个月）：$650-720，依据：durable platform compounding.
+        """
+    )
+    assert payload["short_term"]["price"] == "410"
+    assert payload["medium_term"]["price"] == "550"
+    assert payload["long_term"]["price"] == "685"
+
+
+def test_extract_target_prices_from_text_prioritizes_heading_targets() -> None:
+    payload = extract_target_prices_from_text(
+        """
+        ### 短期目标价：$425 - $465 | 时间轴：3-6个月
+        ### 中期目标价：$540 - $610 | 时间轴：12-18个月
+        ### 长期目标价：$680 - $820 | 时间轴：24-36个月
+        - 监控P/FCF倍数：当前~28x（假设FCF $13/share）若无法压缩至<20x，则长期目标$800不可达
+        """
+    )
+    assert payload["short_term"]["price"] == "445"
+    assert payload["medium_term"]["price"] == "575"
+    assert payload["long_term"]["price"] == "750"
+
+
+def test_derive_target_prices_from_context_reads_usd_current_price() -> None:
+    payload = derive_target_prices_from_context("当前价格基准：$372.29", verdict="watchlist")
+    assert payload["medium_term"]["price"] == "416.96"
+
+
 def test_normalize_screen_candidates_keeps_diligence_fields() -> None:
     candidates = normalize_screen_candidates(
         [
@@ -1349,6 +1565,11 @@ def test_source_quality_score_prefers_official_domains() -> None:
     assert source_quality_score("https://www.cninfo.com.cn/test") > source_quality_score("https://finance.sina.com.cn/test")
 
 
+def test_source_quality_score_prefers_exact_subdomain_over_root_domain() -> None:
+    assert source_quality_score("https://caifuhao.eastmoney.com/news/test") < source_quality_score("https://www.eastmoney.com/test")
+    assert source_quality_score("https://ai.xueqiu.com/test") < 36
+
+
 def test_derive_target_prices_from_context_builds_numeric_fallbacks() -> None:
     payload = derive_target_prices_from_context(
         "当前价格基准：47.64元，估值仍待验证。",
@@ -1357,3 +1578,13 @@ def test_derive_target_prices_from_context_builds_numeric_fallbacks() -> None:
     assert payload["short_term"]["price"]
     assert payload["medium_term"]["price"]
     assert payload["long_term"]["price"]
+
+
+def test_normalize_target_prices_rejects_stock_code_like_prices() -> None:
+    payload = normalize_target_prices(
+        {"long_term": {"price": "302654", "horizon": "2025年", "thesis": "研报标题噪音"}},
+        {"long_term": {"price": "58.76", "horizon": "12-36个月", "thesis": "业务质量抬升"}},
+    )
+    assert payload["long_term"]["price"] == "58.76"
+    assert payload["long_term"]["horizon"] == "12-36个月"
+    assert payload["long_term"]["thesis"] == "业务质量抬升"

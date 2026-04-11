@@ -5,8 +5,16 @@
 ## One Run
 
 ```bash
-./bin/research-stock 603283.SH CN --angle "中国故事"
+./bin/research-stock 赛腾股份 中国
 ```
+
+Plain code form also works:
+
+```bash
+./bin/research-stock 603283 中国
+```
+
+The default run is comprehensive buy-side research. It does not require a thesis angle; the workflow covers business quality, recent developments, valuation, catalysts, risks, sentiment, peer comparison, red-team dissent, scenario paths, and target prices by default.
 
 Legacy compatible form:
 
@@ -49,7 +57,7 @@ Artifacts:
 ## Watchlist
 
 ```bash
-./bin/research-stock watchlist add 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事" --interval 7d
+./bin/research-stock watchlist add 赛腾股份 --market 中国 --interval 7d
 ./bin/research-stock watchlist list
 ./bin/research-stock watchlist run-due
 ```
@@ -57,14 +65,15 @@ Artifacts:
 Each watchlist item stores:
 
 - stock name / ticker / market
-- research angle
+- optional thesis angle
 - cadence
 - next run time
 - latest generated report path
 
 When due entries are processed, the desk also writes:
 
-- `~/Desktop/Stock Research Desk/digests/*-watchlist-digest.docx`
+- refreshed stock memo DOCX files for due names on `~/Desktop/`
+- no separate watchlist digest DOCX; watchlist state stays internal under `~/.stock-research-desk/`
 
 ## Email Control
 
@@ -78,9 +87,9 @@ Example:
 
 Supported subject formats:
 
-- `research: 赛腾股份 | 603283.SH | CN | 中国故事`
-- `screen: 中国机器人 | 3 | CN | 中国故事`
-- `watchlist add: 赛腾股份 | 603283.SH | 7d | CN | 中国故事`
+- `research: 赛腾股份 |  | 中国`
+- `screen: 中国机器人 | 3 | 中国`
+- `watchlist add: 赛腾股份 |  | 7d | 中国`
 - `watchlist list`
 - `watchlist run-due`
 
@@ -89,7 +98,7 @@ The desk will:
 1. poll unread messages
 2. parse supported commands
 3. execute the workflow locally
-4. reply with a summary and attach the generated memo, screening summary, or digest
+4. reply with a summary and attach the generated memo or screening summary; watchlist briefs stay in the email body and attach only refreshed stock memos
 
 Reply formats:
 
@@ -100,7 +109,7 @@ Reply formats:
 
 ## What Happens
 
-1. The CLI loads prior memory from `memory_palace/` if it exists.
+1. The CLI loads prior memory from `~/.stock-research-desk/memory_palace/` if it exists.
 2. The market desk searches for industry, cycle, and valuation context.
 3. The company desk searches for business, customer, and financial signals.
 4. The sentiment desk searches for narrative flow and participant psychology.
@@ -113,7 +122,8 @@ Reply formats:
 
 ## Artifacts
 
-- final report, screening, and digest DOCX files directly on `~/Desktop/`
+- final report and screening DOCX files directly on `~/Desktop/`
+- refreshed watchlist stock memos on `~/Desktop/` only when `watchlist run-due` is explicitly triggered
 - memory snapshots in `~/.stock-research-desk/memory_palace/`
 - internal machine payloads in `~/.stock-research-desk/.internal/`
 

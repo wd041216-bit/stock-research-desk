@@ -6,7 +6,17 @@ from typing import Any
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
 from docx.shared import Pt
+
+BODY_FONT = "Aptos"
+CJK_FONT = "PingFang SC"
+TITLE_FONT = "Aptos Display"
+BODY_SIZE = Pt(10.5)
+TABLE_SIZE = Pt(9)
+TITLE_SIZE = Pt(18)
+HEADING1_SIZE = Pt(13)
+HEADING2_SIZE = Pt(11.5)
 
 
 def contains_cjk(text: str) -> bool:
@@ -26,30 +36,38 @@ def build_english_report_fallback(payload: dict[str, Any]) -> dict[str, Any]:
     ticker = str(payload.get("ticker") or "UNKNOWN").strip() or "UNKNOWN"
     company_name = str(payload.get("company_name") or "").strip()
     safe_company_name = ticker if contains_cjk(company_name) else (company_name or ticker)
+    verdict = english_safe_text(str(payload.get("verdict") or ""), "watchlist")
+    confidence = english_safe_text(str(payload.get("confidence") or ""), "medium")
+    evidence_count = len(payload.get("evidence") or []) if isinstance(payload.get("evidence"), list) else 0
+    target_snapshot = _english_target_snapshot(payload.get("target_prices") or {})
     return {
         "company_name": safe_company_name,
         "ticker": ticker,
         "exchange": english_safe_text(str(payload.get("exchange") or ""), "n/a"),
         "market": english_safe_text(str(payload.get("market") or ""), "n/a"),
-        "quick_take": english_safe_text(str(payload.get("quick_take") or ""), "Automatic English translation was unavailable in this run. Use the Chinese report as the primary source of truth."),
-        "verdict": english_safe_text(str(payload.get("verdict") or ""), "watchlist"),
-        "confidence": english_safe_text(str(payload.get("confidence") or ""), "medium"),
-        "market_map": english_safe_text(str(payload.get("market_map") or ""), "English translation was unavailable for the market map in this run."),
-        "business_summary": english_safe_text(str(payload.get("business_summary") or ""), "English translation was unavailable for the business summary in this run."),
-        "china_story": english_safe_text(str(payload.get("china_story") or ""), "English translation was unavailable for the angle-specific narrative in this run."),
-        "sentiment_simulation": english_safe_text(str(payload.get("sentiment_simulation") or ""), "English translation was unavailable for the sentiment simulation in this run."),
-        "peer_comparison": english_safe_text(str(payload.get("peer_comparison") or ""), "English translation was unavailable for the peer comparison in this run."),
-        "committee_takeaways": english_safe_text(str(payload.get("committee_takeaways") or ""), "English translation was unavailable for the investor council notes in this run."),
-        "scenario_outlook": english_safe_text(str(payload.get("scenario_outlook") or ""), "English translation was unavailable for the scenario outlook in this run."),
-        "debate_notes": english_safe_text(str(payload.get("debate_notes") or ""), "English translation was unavailable for the dissent note in this run."),
-        "valuation_view": english_safe_text(str(payload.get("valuation_view") or ""), "English translation was unavailable for the valuation view in this run."),
-        "bull_case": _english_safe_list(payload.get("bull_case"), "No translated bull points were available in this run."),
-        "bear_case": _english_safe_list(payload.get("bear_case"), "No translated bear points were available in this run."),
-        "catalysts": _english_safe_list(payload.get("catalysts"), "No translated catalysts were available in this run."),
-        "risks": _english_safe_list(payload.get("risks"), "No translated risks were available in this run."),
-        "next_questions": _english_safe_list(payload.get("next_questions"), "No translated follow-up questions were available in this run."),
+        "quick_take": english_safe_text(
+            str(payload.get("quick_take") or ""),
+            f"Chinese report is the primary memo. English fallback summary: verdict={verdict}, confidence={confidence}, evidence sources={evidence_count}, target snapshot={target_snapshot}.",
+        ),
+        "verdict": verdict,
+        "confidence": confidence,
+        "recent_developments": english_safe_text(str(payload.get("recent_developments") or ""), "Recent developments remain under review; use the Chinese memo and evidence table for the freshest source trail."),
+        "market_map": english_safe_text(str(payload.get("market_map") or ""), "Market context remains under review; rely on the Chinese memo and evidence table for the detailed source trail."),
+        "business_summary": english_safe_text(str(payload.get("business_summary") or ""), f"{safe_company_name} is being treated as a watchlist research candidate until business mix, customer quality, and order durability are verified."),
+        "china_story": english_safe_text(str(payload.get("china_story") or ""), "The strategic narrative should be tested against concrete orders, customer concentration, and margin evidence before being treated as conviction."),
+        "sentiment_simulation": english_safe_text(str(payload.get("sentiment_simulation") or ""), "Sentiment remains two-sided: the bull case trades optionality, while the bear case focuses on proof gaps and valuation risk."),
+        "peer_comparison": english_safe_text(str(payload.get("peer_comparison") or ""), "Peer comparison requires a cleaner valuation anchor and higher-quality comparable-company evidence."),
+        "committee_takeaways": english_safe_text(str(payload.get("committee_takeaways") or ""), "The council fallback keeps the name on watchlist rather than high conviction until stronger primary evidence arrives."),
+        "scenario_outlook": english_safe_text(str(payload.get("scenario_outlook") or ""), "Base case remains watchlist; bull case needs verified order acceleration; bear case is narrative overshoot without fundamental confirmation."),
+        "debate_notes": english_safe_text(str(payload.get("debate_notes") or ""), "Red-team focus: customer concentration, evidence quality, order durability, and whether the valuation anchor is robust."),
+        "valuation_view": english_safe_text(str(payload.get("valuation_view") or ""), f"Fallback valuation view: {target_snapshot}. Treat these as scenario targets, not investment advice."),
+        "bull_case": _english_safe_list(payload.get("bull_case"), "Bull case: upside requires verified order quality, customer expansion, and durable margin or mix improvement."),
+        "bear_case": _english_safe_list(payload.get("bear_case"), "Bear case: the narrative may outrun evidence if customer concentration, order durability, or valuation anchors remain weak."),
+        "catalysts": _english_safe_list(payload.get("catalysts"), "Catalysts: new orders, customer proof, margin evidence, and sector capital-expenditure recovery."),
+        "risks": _english_safe_list(payload.get("risks"), "Risks: weak evidence quality, customer concentration, demand cyclicality, and valuation compression."),
+        "next_questions": _english_safe_list(payload.get("next_questions"), "Next question: what primary filings or company disclosures can verify the key investment debate?"),
         "evidence": _english_safe_evidence(payload.get("evidence")),
-        "target_prices": payload.get("target_prices") or {},
+        "target_prices": _english_safe_targets(payload.get("target_prices")),
     }
 
 
@@ -178,10 +196,10 @@ def write_bilingual_report_docx(path: Path, *, zh_payload: dict[str, Any], en_pa
         f"{zh_payload.get('company_name') or zh_payload.get('ticker') or 'Stock'} Research Desk Delivery",
         subtitle="Chinese section first. English section follows on a separate page.",
     )
-    doc.add_heading("中文交付", level=1)
+    _format_paragraph(doc.add_heading("中文交付", level=1), size=HEADING1_SIZE, bold=True)
     _append_report_section(doc, payload=zh_payload, language="zh", include_title=False)
     doc.add_page_break()
-    doc.add_heading("English Delivery", level=1)
+    _format_paragraph(doc.add_heading("English Delivery", level=1), size=HEADING1_SIZE, bold=True)
     _append_report_section(doc, payload=en_payload, language="en", include_title=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(path)
@@ -194,10 +212,10 @@ def write_bilingual_screening_docx(path: Path, *, zh_payload: dict[str, Any], en
         f"{zh_payload.get('theme', '')} Screening Delivery",
         subtitle="Chinese section first. English section follows on a separate page.",
     )
-    doc.add_heading("中文交付", level=1)
+    _format_paragraph(doc.add_heading("中文交付", level=1), size=HEADING1_SIZE, bold=True)
     _append_screening_section(doc, payload=zh_payload, language="zh", include_title=False)
     doc.add_page_break()
-    doc.add_heading("English Delivery", level=1)
+    _format_paragraph(doc.add_heading("English Delivery", level=1), size=HEADING1_SIZE, bold=True)
     _append_screening_section(doc, payload=en_payload, language="en", include_title=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(path)
@@ -210,10 +228,10 @@ def write_bilingual_watchlist_digest_docx(path: Path, *, artifacts: list[dict[st
         "Watchlist Delivery",
         subtitle="Chinese section first. English section follows on a separate page.",
     )
-    doc.add_heading("中文交付", level=1)
+    _format_paragraph(doc.add_heading("中文交付", level=1), size=HEADING1_SIZE, bold=True)
     _append_watchlist_digest_section(doc, artifacts=artifacts, language="zh", include_title=False)
     doc.add_page_break()
-    doc.add_heading("English Delivery", level=1)
+    _format_paragraph(doc.add_heading("English Delivery", level=1), size=HEADING1_SIZE, bold=True)
     _append_watchlist_digest_section(doc, artifacts=artifacts, language="en", include_title=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(path)
@@ -259,6 +277,56 @@ def _english_safe_evidence(value: Any) -> list[dict[str, str]]:
     return normalized
 
 
+def _english_safe_targets(value: Any) -> dict[str, dict[str, str]]:
+    if not isinstance(value, dict):
+        return {}
+    normalized: dict[str, dict[str, str]] = {}
+    for key in ("short_term", "medium_term", "long_term"):
+        item = value.get(key) or {}
+        if not isinstance(item, dict):
+            continue
+        normalized[key] = {
+            "price": str(item.get("price") or "").strip(),
+            "horizon": _english_horizon(str(item.get("horizon") or "").strip()),
+            "thesis": english_safe_text(str(item.get("thesis") or ""), _fallback_target_thesis(key)),
+        }
+    return normalized
+
+
+def _english_horizon(value: str) -> str:
+    text = value.strip()
+    replacements = {
+        "个月": "months",
+        "月": "months",
+        "年": "years",
+        "周": "weeks",
+        "日": "days",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    text = re.sub(r"(\d)\s*(months|years|weeks|days)", r"\1 \2", text)
+    return english_safe_text(text, "n/a")
+
+
+def _fallback_target_thesis(key: str) -> str:
+    return {
+        "short_term": "Near-term target tied to order, customer, and sentiment validation.",
+        "medium_term": "Medium-term target tied to business-mix migration and valuation-anchor repair.",
+        "long_term": "Long-term target tied to whether the company earns a higher-quality equipment-asset multiple.",
+    }.get(key, "Scenario target thesis requires further evidence.")
+
+
+def _english_target_snapshot(value: Any) -> str:
+    targets = _english_safe_targets(value)
+    parts: list[str] = []
+    for key, label in (("short_term", "short"), ("medium_term", "medium"), ("long_term", "long")):
+        item = targets.get(key) or {}
+        price = str(item.get("price") or "n/a").strip()
+        horizon = str(item.get("horizon") or "n/a").strip()
+        parts.append(f"{label}: {price} ({horizon})")
+    return "; ".join(parts) if parts else "n/a"
+
+
 def _safe_company_label(item: dict[str, Any]) -> str:
     company_name = str(item.get("company_name") or "").strip()
     ticker = str(item.get("ticker") or "").strip()
@@ -271,9 +339,7 @@ def _candidate_identity(item: dict[str, Any]) -> str:
 
 def _new_document() -> Document:
     doc = Document()
-    normal = doc.styles["Normal"]
-    normal.font.size = Pt(10.5)
-    normal.font.name = "Arial"
+    _configure_document_styles(doc)
     doc.sections[0].top_margin = Pt(48)
     doc.sections[0].bottom_margin = Pt(48)
     doc.sections[0].left_margin = Pt(54)
@@ -281,17 +347,64 @@ def _new_document() -> Document:
     return doc
 
 
+def _configure_document_styles(doc: Document) -> None:
+    _set_style_font(doc.styles["Normal"], size=BODY_SIZE)
+    _set_style_font(doc.styles["Heading 1"], size=HEADING1_SIZE, bold=True)
+    _set_style_font(doc.styles["Heading 2"], size=HEADING2_SIZE, bold=True)
+    _set_style_font(doc.styles["List Bullet"], size=BODY_SIZE)
+
+
+def _set_style_font(style: Any, *, size: Any, bold: bool | None = None) -> None:
+    style.font.name = BODY_FONT
+    style.font.size = size
+    if bold is not None:
+        style.font.bold = bold
+    style.element.rPr.rFonts.set(qn("w:eastAsia"), CJK_FONT)
+    style.element.rPr.rFonts.set(qn("w:ascii"), BODY_FONT)
+    style.element.rPr.rFonts.set(qn("w:hAnsi"), BODY_FONT)
+
+
+def _set_run_font(run: Any, *, size: Any | None = None, bold: bool | None = None, italic: bool | None = None, title: bool = False) -> None:
+    font_name = TITLE_FONT if title else BODY_FONT
+    run.font.name = font_name
+    if size is not None:
+        run.font.size = size
+    if bold is not None:
+        run.bold = bold
+    if italic is not None:
+        run.italic = italic
+    run._element.rPr.rFonts.set(qn("w:eastAsia"), CJK_FONT)
+    run._element.rPr.rFonts.set(qn("w:ascii"), font_name)
+    run._element.rPr.rFonts.set(qn("w:hAnsi"), font_name)
+
+
+def _format_paragraph(paragraph: Any, *, size: Any = BODY_SIZE, bold: bool | None = None) -> None:
+    paragraph.paragraph_format.space_after = Pt(4)
+    paragraph.paragraph_format.line_spacing = 1.08
+    for run in paragraph.runs:
+        _set_run_font(run, size=size, bold=bold)
+
+
+def _format_table(table: Any) -> None:
+    table.autofit = True
+    for row_index, row in enumerate(table.rows):
+        for cell in row.cells:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    _set_run_font(run, size=TABLE_SIZE, bold=(True if row_index == 0 else None))
+                paragraph.paragraph_format.space_after = Pt(2)
+                paragraph.paragraph_format.line_spacing = 1.02
+
+
 def _add_title(doc: Document, title: str, *, subtitle: str = "") -> None:
     paragraph = doc.add_paragraph()
     paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
     run = paragraph.add_run(title)
-    run.bold = True
-    run.font.size = Pt(18)
+    _set_run_font(run, size=TITLE_SIZE, bold=True, title=True)
     if subtitle:
         sub = doc.add_paragraph(subtitle)
         sub.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        sub.runs[0].italic = True
-        sub.runs[0].font.size = Pt(9.5)
+        _set_run_font(sub.runs[0], size=Pt(9.5), italic=True)
 
 
 def _add_metadata_table(doc: Document, rows: list[tuple[str, str]]) -> None:
@@ -301,26 +414,27 @@ def _add_metadata_table(doc: Document, rows: list[tuple[str, str]]) -> None:
         row = table.add_row().cells
         row[0].text = label
         row[1].text = value or "n/a"
+    _format_table(table)
 
 
 def _add_heading_and_paragraph(doc: Document, heading: str, body: str) -> None:
-    doc.add_heading(heading, level=1)
+    _format_paragraph(doc.add_heading(heading, level=1), size=HEADING1_SIZE, bold=True)
     cleaned = str(body or "").strip() or "-"
     for chunk in [part.strip() for part in cleaned.split("\n\n") if part.strip()]:
-        doc.add_paragraph(chunk)
+        _format_paragraph(doc.add_paragraph(chunk), size=BODY_SIZE)
 
 
 def _add_bullet_section(doc: Document, heading: str, items: list[str], empty_text: str) -> None:
-    doc.add_heading(heading, level=1)
+    _format_paragraph(doc.add_heading(heading, level=1), size=HEADING1_SIZE, bold=True)
     if not items:
-        doc.add_paragraph(empty_text)
+        _format_paragraph(doc.add_paragraph(empty_text), size=BODY_SIZE)
         return
     for item in items:
-        doc.add_paragraph(str(item), style="List Bullet")
+        _format_paragraph(doc.add_paragraph(str(item), style="List Bullet"), size=BODY_SIZE)
 
 
 def _add_target_price_section(doc: Document, labels: dict[str, str], target_prices: dict[str, dict[str, str]]) -> None:
-    doc.add_heading(labels["target_prices"], level=1)
+    _format_paragraph(doc.add_heading(labels["target_prices"], level=1), size=HEADING1_SIZE, bold=True)
     table = doc.add_table(rows=1, cols=3)
     table.style = "Table Grid"
     headers = table.rows[0].cells
@@ -337,12 +451,13 @@ def _add_target_price_section(doc: Document, labels: dict[str, str], target_pric
         row[0].text = f"{title} | {item.get('horizon') or 'n/a'}"
         row[1].text = str(item.get("price") or "n/a")
         row[2].text = str(item.get("thesis") or labels["translation_unavailable"])
+    _format_table(table)
 
 
 def _add_evidence_section(doc: Document, labels: dict[str, str], evidence: list[dict[str, str]]) -> None:
-    doc.add_heading(labels["evidence"], level=1)
+    _format_paragraph(doc.add_heading(labels["evidence"], level=1), size=HEADING1_SIZE, bold=True)
     if not evidence:
-        doc.add_paragraph(labels["no_items"])
+        _format_paragraph(doc.add_paragraph(labels["no_items"]), size=BODY_SIZE)
         return
     table = doc.add_table(rows=1, cols=3)
     table.style = "Table Grid"
@@ -355,6 +470,7 @@ def _add_evidence_section(doc: Document, labels: dict[str, str], evidence: list[
         row[0].text = f"{item.get('title') or 'Source'}\n{item.get('url') or ''}"
         row[1].text = str(item.get("claim") or "")
         row[2].text = str(item.get("stance") or "")
+    _format_table(table)
 
 
 def _append_report_section(doc: Document, *, payload: dict[str, Any], language: str, include_title: bool = True) -> None:
@@ -372,6 +488,7 @@ def _append_report_section(doc: Document, *, payload: dict[str, Any], language: 
         ],
     )
     _add_heading_and_paragraph(doc, labels["quick_take"], str(payload.get("quick_take") or ""))
+    _add_heading_and_paragraph(doc, labels["recent_developments"], str(payload.get("recent_developments") or ""))
     _add_heading_and_paragraph(doc, labels["business_summary"], str(payload.get("business_summary") or ""))
     _add_heading_and_paragraph(doc, labels["market_map"], str(payload.get("market_map") or ""))
     _add_heading_and_paragraph(doc, labels["china_story"], str(payload.get("china_story") or ""))
@@ -403,11 +520,11 @@ def _append_screening_section(doc: Document, *, payload: dict[str, Any], languag
             (labels["final_recommendations"], str(len(finalists))),
         ],
     )
-    doc.add_heading(labels["final_recommendations"], level=1)
+    _format_paragraph(doc.add_heading(labels["final_recommendations"], level=1), size=HEADING1_SIZE, bold=True)
     if not finalists:
-        doc.add_paragraph(labels["no_items"])
+        _format_paragraph(doc.add_paragraph(labels["no_items"]), size=BODY_SIZE)
     for item in finalists:
-        doc.add_heading(f"{item.get('company_name') or item.get('ticker', '')} {item.get('ticker', '')}".strip(), level=2)
+        _format_paragraph(doc.add_heading(f"{item.get('company_name') or item.get('ticker', '')} {item.get('ticker', '')}".strip(), level=2), size=HEADING2_SIZE, bold=True)
         for line in [
             f"{labels['recommendation_rank']}: {item.get('recommendation_rank') or 'A'}",
             f"{labels['screen_score']}: {item.get('screen_score') or 'n/a'}",
@@ -422,13 +539,13 @@ def _append_screening_section(doc: Document, *, payload: dict[str, Any], languag
             f"{labels['bull_bear_focus']}: {item.get('bull_bear_focus') or labels['translation_unavailable']}",
             f"{labels['document_path']}: {item.get('document_path') or 'n/a'}",
         ]:
-            doc.add_paragraph(line, style="List Bullet")
-    doc.add_heading(labels["downgraded_names"], level=1)
+            _format_paragraph(doc.add_paragraph(line, style="List Bullet"), size=BODY_SIZE)
+    _format_paragraph(doc.add_heading(labels["downgraded_names"], level=1), size=HEADING1_SIZE, bold=True)
     rejected = list(payload.get("rejected") or [])
     if not rejected:
-        doc.add_paragraph(labels["no_items"])
+        _format_paragraph(doc.add_paragraph(labels["no_items"]), size=BODY_SIZE)
     for item in rejected:
-        doc.add_paragraph(f"{item.get('label') or 'candidate'}: {item.get('reason') or labels['translation_unavailable']}", style="List Bullet")
+        _format_paragraph(doc.add_paragraph(f"{item.get('label') or 'candidate'}: {item.get('reason') or labels['translation_unavailable']}", style="List Bullet"), size=BODY_SIZE)
 
 
 def _append_watchlist_digest_section(doc: Document, *, artifacts: list[dict[str, str]], language: str, include_title: bool = True) -> None:
@@ -436,13 +553,13 @@ def _append_watchlist_digest_section(doc: Document, *, artifacts: list[dict[str,
     if include_title:
         _add_title(doc, labels["title"], subtitle=f"{labels['refreshed_names']}: {len(artifacts)}")
     if not artifacts:
-        doc.add_paragraph(labels["no_items"])
+        _format_paragraph(doc.add_paragraph(labels["no_items"]), size=BODY_SIZE)
     for item in artifacts:
-        doc.add_heading(str(item.get("identifier") or "Name"), level=2)
-        doc.add_paragraph(f"{labels['verdict']}: {item.get('verdict') or 'watchlist'}", style="List Bullet")
-        doc.add_paragraph(f"{labels['target_snapshot']}: {item.get('target_snapshot') or 'n/a'}", style="List Bullet")
+        _format_paragraph(doc.add_heading(str(item.get("identifier") or "Name"), level=2), size=HEADING2_SIZE, bold=True)
+        _format_paragraph(doc.add_paragraph(f"{labels['verdict']}: {item.get('verdict') or 'watchlist'}", style="List Bullet"), size=BODY_SIZE)
+        _format_paragraph(doc.add_paragraph(f"{labels['target_snapshot']}: {item.get('target_snapshot') or 'n/a'}", style="List Bullet"), size=BODY_SIZE)
         path_key = "primary_document_path" if item.get("primary_document_path") else "zh_docx_path"
-        doc.add_paragraph(f"{labels['document_path']}: {item.get(path_key) or 'n/a'}", style="List Bullet")
+        _format_paragraph(doc.add_paragraph(f"{labels['document_path']}: {item.get(path_key) or 'n/a'}", style="List Bullet"), size=BODY_SIZE)
 
 
 def _report_labels(language: str) -> dict[str, str]:
@@ -456,6 +573,7 @@ def _report_labels(language: str) -> dict[str, str]:
             "exchange": "Exchange",
             "model": "Model",
             "quick_take": "Quick Take",
+            "recent_developments": "Recent Developments / Volatility Clues",
             "business_summary": "Business Summary",
             "market_map": "Market Map",
             "china_story": "Angle / Strategic Narrative",
@@ -493,6 +611,7 @@ def _report_labels(language: str) -> dict[str, str]:
         "exchange": "交易所",
         "model": "模型",
         "quick_take": "快速判断",
+        "recent_developments": "最新实效信息与波动线索",
         "business_summary": "业务概览",
         "market_map": "市场与行业图谱",
         "china_story": "研究角度 / 叙事主线",

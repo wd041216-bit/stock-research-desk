@@ -9,10 +9,40 @@ description = "Multi-agent equity research desk for single-name deep dives, them
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
+keywords = [
+  "equity-research",
+  "stock-research",
+  "multi-agent",
+  "investment-research",
+  "ollama",
+  "financial-analysis",
+  "scenario-analysis",
+  "watchlist",
+  "buy-side",
+  "docx"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Financial and Insurance Industry",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Office/Business :: Financial :: Investment",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
 dependencies = [
   "ollama>=0.6.1",
   "python-docx>=1.1,<2.0"
 ]
+
+[project.urls]
+Homepage = "https://github.com/wd041216-bit/stock-research-desk"
+Repository = "https://github.com/wd041216-bit/stock-research-desk"
+Issues = "https://github.com/wd041216-bit/stock-research-desk/issues"
+Documentation = "https://github.com/wd041216-bit/stock-research-desk#readme"
 
 [project.scripts]
 stock-research-desk = "stock_research_desk.stock_cli:main"

@@ -8,7 +8,7 @@ The point is not just remote triggering. The replies are formatted like a small 
 
 Triggered by:
 
-- `research: 赛腾股份 | 603283.SH | CN | 中国故事`
+- `research: 赛腾股份 |  | 中国`
 
 Format:
 
@@ -24,7 +24,7 @@ Format:
 
 Triggered by:
 
-- `screen: 中国机器人 | 3 | CN | 中国故事`
+- `screen: 中国机器人 | 3 | 中国`
 
 Format:
 
@@ -51,7 +51,7 @@ Format:
 - highest-priority refresh
 - target snapshot
 - quick take per updated name
-- attached digest
+- refreshed memo attachments only for names that were actually due
 
 ## Weekly Watchlist Wrap
 
@@ -59,7 +59,7 @@ Also triggered by:
 
 - `watchlist run-due`
 
-but the desk promotes the digest into a weekly wrap on the start of the week.
+but the desk promotes the email body into a weekly wrap on the start of the week.
 
 Format:
 
@@ -67,4 +67,4 @@ Format:
 - lead verdict
 - target snapshot
 - roll-up of refreshed names
-- attached digest and refreshed memos
+- refreshed memo attachments only; the watchlist queue itself remains internal

@@ -1,6 +1,6 @@
 ---
 name: stock-research-desk
-description: Codex-native stock research workflow for single-name deep dives, theme screening, and watchlist monitoring. Use when researching a stock or sector, producing separate Chinese and English DOCX reports, using Codex web search first, falling back to cross-validated-search only on explicit web errors, and setting up Codex automations for recurring coverage.
+description: Codex-native stock research workflow for single-name deep dives, theme screening, and watchlist monitoring. Use when researching a stock or sector, producing one desktop DOCX with separate Chinese and English sections, using Codex web search first, falling back to cross-validated-search only on explicit web errors, and setting up Codex automations for recurring coverage.
 ---
 
 # Stock Research Desk Skill
@@ -65,18 +65,13 @@ The output should always include:
 
 ### 4. Delivery
 
-Write final reports to:
+Write final human-facing reports as one desktop document:
 
-- `~/Desktop/Stock Research Desk/reports/`
-- `~/Desktop/Stock Research Desk/screenings/`
-- `~/Desktop/Stock Research Desk/digests/`
+- `~/Desktop/<timestamp>-<ticker-or-name>.docx`
 
-Prefer two separate DOCX files:
+Keep Chinese and English in separate sections inside that one DOCX. Do not create extra watchlist digest DOCX files unless the user explicitly asks for them.
 
-- Chinese report
-- English report
-
-Do not mix Chinese and English inside the same report.
+Keep internal state out of the desktop and under the repo/workflow workspace, for example memory snapshots, machine JSON, watchlist queues, and debug artifacts.
 
 If you need the repo's document writer, use:
 
@@ -87,7 +82,7 @@ If you need the repo's document writer, use:
 When the user wants recurring monitoring:
 
 - prefer Codex automations instead of the repo's internal watchlist scheduler
-- the automation should research the name, regenerate separate Chinese and English DOCX reports, and open an inbox item
+- the automation should research the name, regenerate one desktop DOCX with separate Chinese and English sections, and open an inbox item
 - use the same evidence policy and target-price structure as single-name work
 
 Read [references/watchlist-automation.md](references/watchlist-automation.md) when preparing a watchlist automation.

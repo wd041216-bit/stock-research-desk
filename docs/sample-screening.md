@@ -2,8 +2,8 @@
 
 This is the kind of screening artifact `stock-research-desk` writes into:
 
-- `~/Desktop/Stock Research Desk/screenings/*.docx`
-- `~/Desktop/Stock Research Desk/.internal/screenings/*.json`
+- `~/Desktop/*.docx` for the user-facing final delivery
+- `~/.stock-research-desk/.internal/screenings/*.json` for machine artifacts
 
 ## Theme
 

@@ -13,9 +13,12 @@ Use these files when operating the repo through Codex:
 - `tests/test_stock_cli.py`
   High-signal regression coverage for screening, entity normalization, watchlist flow, and report shaping.
 
-Desktop output roots:
+Human-facing desktop output:
 
-- `~/Desktop/Stock Research Desk/reports/`
-- `~/Desktop/Stock Research Desk/screenings/`
-- `~/Desktop/Stock Research Desk/digests/`
-- `~/Desktop/Stock Research Desk/memory_palace/`
+- `~/Desktop/<timestamp>-<ticker-or-name>.docx`
+
+Internal workspace roots:
+
+- `~/.stock-research-desk/memory_palace/`
+- `~/.stock-research-desk/.internal/`
+- `~/.stock-research-desk/watchlist.json`

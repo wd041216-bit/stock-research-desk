@@ -10,18 +10,17 @@ Recommended automation behavior:
   - Codex web search/open first
   - `cross-validated-search` only on explicit web errors
 - output:
-  - Chinese DOCX report
-  - English DOCX report
-  - optional JSON payload if the user wants machine-readable output
+  - one desktop DOCX report with Chinese and English in separate sections
+  - hidden JSON payload only if machine-readable follow-up state is needed
 - delivery path:
-  - `~/Desktop/Stock Research Desk/reports/`
-  - `~/Desktop/Stock Research Desk/digests/`
+  - `~/Desktop/<timestamp>-<ticker-or-name>.docx`
+  - internal state under `~/.stock-research-desk/`
 
 Suggested automation checklist:
 
-1. load prior memo context from the desktop workspace if present
+1. load prior memo context from the internal memory workspace if present
 2. gather fresh evidence
 3. run the same multi-agent council
 4. update target prices with horizons
-5. write two DOCX files
+5. write one final DOCX file to the desktop
 6. open an inbox item with the refreshed verdict and file paths

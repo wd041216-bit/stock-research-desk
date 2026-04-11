@@ -25,8 +25,8 @@ The standalone CLI still matters because it gives the repo:
 
 Both modes now share the same delivery convention:
 
-- a single desktop DOCX that keeps Chinese and English in separate sections for people
-- JSON payloads for machines and follow-up automation
+- one user-facing desktop DOCX that keeps Chinese and English in separate sections for people
+- hidden JSON payloads and memory snapshots for machines and follow-up automation
 
 ## Recommended Split
 

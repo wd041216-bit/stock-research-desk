@@ -3,6 +3,7 @@
 Each completed run aims to produce these sections:
 
 - `quick_take`
+- `recent_developments`
 - `market_map`
 - `business_summary`
 - `china_story`
@@ -20,6 +21,18 @@ Each completed run aims to produce these sections:
 - `evidence`
 - `next_questions`
 
+## Recent Developments
+
+`recent_developments` is the memo's freshness layer. It should summarize recent announcements, earnings/order/customer signals, price/news flow, and near-term volatility clues.
+
+Older sources still matter for business quality and long-cycle context, but recent sources should be used to judge marginal change and likely market volatility.
+
+The evidence model may attach:
+
+- `source_date`
+- `retrieved_at`
+- `quality`
+
 ## Target Prices
 
 `target_prices` always uses three buckets:
@@ -34,4 +47,4 @@ Each bucket contains:
 - `horizon`
 - `thesis`
 
-If the price committee fails to produce usable numbers, the workflow can derive fallback target prices from public price anchors plus the current verdict.
+If the price committee fails to produce usable numbers after the cloud model chain has succeeded, the workflow can derive conservative target prices from public price anchors plus the current verdict. If the configured cloud model chain itself is unavailable or times out, the report fails instead of generating a local/template memo.

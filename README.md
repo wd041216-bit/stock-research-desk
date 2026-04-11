@@ -1,5 +1,7 @@
 # Stock Research Desk
 
+[中文说明](README.zh-CN.md)
+
 ![Stock Research Desk banner](assets/banner.svg)
 
 A cloud-only multi-agent equity research desk for single-name deep dives, theme screening, recurring watchlists, and bilingual document delivery.

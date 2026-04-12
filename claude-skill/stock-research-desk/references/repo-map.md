@@ -5,16 +5,16 @@ Use these files when operating the repo through Claude Code:
 ## Core Source Files
 
 - `src/stock_research_desk/stock_cli.py`
-  Main workflow, screening logic, email handling, watchlist management, agent orchestration, prompt construction, source quality scoring, and evidence extraction. This is the largest file and contains the bulk of the business logic.
+  Main workflow (5750 lines). Contains CLI entry point, agent orchestration, prompt construction, screening pipeline, email handling, watchlist management, evidence processing, source quality scoring, memory context, and report normalization.
 
 - `src/stock_research_desk/documents.py`
-  DOCX export layer for Chinese and English report bundles. Handles all document formatting, fonts, table layout, and bilingual section assembly.
+  DOCX export layer (709 lines). Handles all document formatting, fonts, table layout, bilingual section assembly, and label localization (Chinese/English).
 
 - `src/stock_research_desk/persona_pack.py`
-  Investor persona blends for the multi-agent workflow. Each persona defines role, lead investors, analytical style, primary lenses, and bias controls.
+  Investor persona blends (178 lines). Each persona defines role_key, title, lead_investors, style_summary, primary_lenses, and bias_controls.
 
 - `src/stock_research_desk/runtime.py`
-  Structured JSON repair and response parsing. Handles markdown fences, brace balancing, and JSON extraction from LLM output.
+  Structured JSON repair and response parsing (54 lines). Handles markdown fences, brace balancing, and JSON extraction from LLM output.
 
 - `src/stock_research_desk/__init__.py`
   Package init, re-exports `main` from `stock_cli`.
@@ -31,11 +31,23 @@ Use these files when operating the repo through Claude Code:
 
 ## Skill Definitions
 
-- `codex-skill/stock-research-desk/SKILL.md`
-  Codex-native skill definition (separate from this Claude Code skill).
-
 - `claude-skill/stock-research-desk/SKILL.md`
-  This Claude Code skill definition.
+  Claude Code skill definition with full prompts, workflow, evidence rules, and output schema.
+
+- `claude-skill/stock-research-desk/agents/claude.yaml`
+  Agent configuration with 8 investor personas, execution modes, and source quality scoring.
+
+- `claude-skill/stock-research-desk/references/workflow.md`
+  Detailed step-by-step workflow for each research mode.
+
+- `claude-skill/stock-research-desk/references/prompts.md`
+  Full prompt templates for each agent, screening council, and synthesis.
+
+- `claude-skill/stock-research-desk/references/watchlist-automation.md`
+  Watchlist scheduling and state management reference.
+
+- `codex-skill/stock-research-desk/SKILL.md`
+  Codex-native skill definition (separate from Claude Code skill).
 
 ## Key Data Flows
 
@@ -44,19 +56,20 @@ Use these files when operating the repo through Claude Code:
 ```
 User input (stock name/code + market)
   → resolve_stock_name()
-  → run_stock_research()
-    → market_analyst (web search + analysis)
-    → company_analyst (web search + analysis)
-    → sentiment_simulator (web search + analysis)
-    → comparison_analyst (web search + analysis)
-    → committee_red_team (critique)
-    → guru_council (synthesize)
-    → mirofish_scenario_engine (bull/base/bear)
-    → price_committee (target prices)
-    → synthesize_buy_side_report()
-    → build_report_payload()
-    → write_bilingual_report_docx()
-    → Desktop delivery
+  → load memory context (~/.stock-research-desk/memory_palace/<ticker>.json)
+  → market_analyst (WebSearch + analysis)
+  → company_analyst (WebSearch + analysis)
+  → sentiment_simulator (WebSearch + analysis)
+  → comparison_analyst (WebSearch + analysis)
+  → committee_red_team (critique, no new search)
+  → guru_council (synthesize, no new search)
+  → mirofish_scenario_engine (bull/base/bear, no new search)
+  → price_committee (WebSearch + target prices)
+  → synthesize_buy_side_report() → JSON payload
+  → normalize_report_payload() → cleaned payload
+  → translate_structured_payload() → English payload
+  → write_bilingual_report_docx() → ~/Desktop/<timestamp>-<ticker>.docx
+  → save_memory_context() → ~/.stock-research-desk/memory_palace/<ticker>.json
 ```
 
 ### Theme Screening
@@ -64,21 +77,24 @@ User input (stock name/code + market)
 ```
 User input (theme + market + count)
   → run_screening_pipeline()
-    → run_screening_scout() (initial candidates)
-    → run_screening_scout_densification() (vertical/horizontal diligence)
-    → run_second_screen_committee() (3-pass review)
-    → run_screening_diligence() (finalist deep research)
-    → write_bilingual_screening_docx()
-    → Desktop delivery
+    → run_screening_scout() (initial candidates via WebSearch)
+    → run_screening_scout_densification() (second round if pool is thin)
+    → build_screening_doc_payload() (candidate enrichment)
+    → run_second_screen_committee() (3-pass: bull → red-team → reconsideration)
+    → run_screening_diligence() (finalist deep research, each runs full single-name flow)
+    → write_bilingual_screening_docx() → ~/Desktop/<timestamp>-screen-<slug>.docx
+    → write_bilingual_report_docx() for each finalist → ~/Desktop/<timestamp>-<ticker>.docx
 ```
 
 ### Watchlist
 
 ```
-watchlist add → save_watchlist()
+watchlist add → save_watchlist() → ~/.stock-research-desk/watchlist.json
 watchlist run-due → run_due_watchlist()
   → for each due entry, run_stock_research()
-  → Desktop delivery of refreshed memos
+  → save_memory_context()
+  → write_bilingual_report_docx() → ~/Desktop/
+  → update next_run timestamp
 ```
 
 ## Human-Facing Desktop Output

@@ -3,6 +3,51 @@ interface:
   display_name: Stock Research Desk
   short_description: Claude Code skill for multi-agent equity research, screening, and bilingual DOCX delivery
   default_prompt: Research a stock or sector with multi-agent deliberation, debate-oriented memos, and bilingual DOCX delivery.
+
+# Research mode configuration
+execution_modes:
+  single_name:
+    description: Full buy-side deep dive on one stock
+    sequence:
+      - market_analyst
+      - company_analyst
+      - sentiment_simulator
+      - comparison_analyst
+      - committee_red_team
+      - guru_council
+      - mirofish_scenario_engine
+      - price_committee
+    output: bilingual DOCX (Chinese first, then page break, then English)
+    agents_with_search: [market_analyst, company_analyst, sentiment_simulator, comparison_analyst, price_committee]
+    agents_without_search: [committee_red_team, guru_council, mirofish_scenario_engine]
+
+  screening:
+    description: Theme/sector screening with multi-stage filtering
+    steps:
+      - key: initial_scout
+        description: Search for candidate companies matching the theme
+        uses_search: true
+      - key: densification
+        description: Run vertical and horizontal web diligence on each candidate
+        uses_search: true
+      - key: second_screen_council
+        description: Three-pass review (bull, red-team, reconsideration)
+        uses_search: true
+        sub_steps:
+          - bull_round
+          - red_team_round
+          - reconsideration_round
+      - key: finalist_deep_research
+        description: Full multi-agent memo process on each finalist
+        uses_single_name_mode: true
+    output: screening DOCX + finalist memo DOCX files
+
+  watchlist:
+    description: Recurring monitoring of tracked stocks
+    operations: [add, list, run-due]
+    output: refreshed stock memo DOCX for due names
+
+# Agent persona definitions
 agents:
   - key: market_analyst
     display_name: Market Analyst
@@ -67,7 +112,7 @@ agents:
   - key: guru_council
     display_name: Guru Council
     short_description: Multi-stage investor council
-    persona_investors: ["Warren Buffett", "Stanley Druckenmiller", "Charlie Munger"]
+    persona_investors: ["Warren Buffett", "Stanley Druckenmiler", "Charlie Munger"]
     lenses:
       - Separate what is known, what is probable, and what is still narrative.
       - Record where the desk agrees and where it is still split.
@@ -100,30 +145,7 @@ agents:
       - Do not publish a target price without stating the time horizon and dependency chain.
       - Do not let multiple expansion replace missing evidence.
 
-execution_modes:
-  single_name:
-    description: Full buy-side deep dive on one stock
-    sequence: [market_analyst, company_analyst, sentiment_simulator, comparison_analyst, committee_red_team, guru_council, mirofish_scenario_engine, price_committee]
-    output: bilingual DOCX (Chinese first, English page break)
-
-  screening:
-    description: Theme/sector screening with multi-stage filtering
-    steps:
-      - key: initial_scout
-        description: Search for candidate companies matching the theme
-      - key: densification
-        description: Run vertical and horizontal web diligence on each candidate
-      - key: second_screen_council
-        description: Three-pass review (support, red-team, reconsideration)
-      - key: finalist_deep_research
-        description: Full multi-agent memo process on each finalist
-    output: screening DOCX + finalist memo DOCX files
-
-  watchlist:
-    description: Recurring monitoring of tracked stocks
-    operations: [add, list, run-due]
-    output: refreshed stock memo DOCX for due names
-
+# Source quality configuration
 source_quality:
   domain_scores:
     cninfo.com.cn: 96
@@ -136,8 +158,60 @@ source_quality:
     caixin.com: 84
     eastmoney.com: 74
     finance.sina.com.cn: 68
+    money.finance.sina.com.cn: 68
+    stock.finance.sina.com.cn: 66
+    vip.stock.finance.sina.com.cn: 66
+    news.futunn.com: 72
+    futunn.com: 72
     xueqiu.com: 70
+    ai.xueqiu.com: 32
+    gg.cfi.cn: 58
+    cfi.cn: 58
+    lixinger.com: 64
+    9fzt.com: 42
+    vzkoo.com: 40
+    fxbaogao.com: 40
+    caifuhao.eastmoney.com: 34
+    guba.eastmoney.com: 28
   blocked_domains:
     - guba.eastmoney.com
     - ai.xueqiu.com
   minimum_quality_score: 36
+
+# Output configuration
+output:
+  format: bilingual_docx
+  delivery_dir: ~/Desktop/
+  internal_dir: ~/.stock-research-desk/
+  memory_dir: ~/.stock-research-desk/memory_palace/
+  watchlist_file: ~/.stock-research-desk/watchlist.json
+  naming_pattern: "{timestamp}-{ticker}.docx"
+
+# Verdict normalization
+verdict_mapping:
+  strong_buy: bullish
+  buy: bullish
+  买入: bullish
+  强烈看好: bullish
+  hold: watchlist
+  观望: watchlist
+  中性: watchlist
+  watch: watchlist
+  watching: watchlist
+  sell: bearish
+  卖出: bearish
+  看空: bearish
+  negative: bearish
+  neutral: neutral
+
+# Confidence normalization
+confidence_mapping:
+  very_high: high
+  很高: high
+  高确信: high
+  moderate: medium
+  中等: medium
+  一般: medium
+  weak: low
+  低: low
+  不确定: low

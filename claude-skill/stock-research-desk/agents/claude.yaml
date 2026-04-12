@@ -7,18 +7,22 @@ interface:
 # Research mode configuration
 execution_modes:
   single_name:
-    description: Full buy-side deep dive on one stock
+    description: Full buy-side deep dive on one stock (12-step multi-factor pipeline)
     sequence:
       - market_analyst
+      - macro_policy_strategist
       - company_analyst
+      - catalyst_event_tracker
       - sentiment_simulator
+      - technical_flow_analyst
       - comparison_analyst
+      - quant_factor_analyst
       - committee_red_team
       - guru_council
       - mirofish_scenario_engine
       - price_committee
     output: bilingual DOCX (Chinese first, then page break, then English)
-    agents_with_search: [market_analyst, company_analyst, sentiment_simulator, comparison_analyst, price_committee]
+    agents_with_search: [market_analyst, macro_policy_strategist, company_analyst, catalyst_event_tracker, sentiment_simulator, technical_flow_analyst, comparison_analyst, quant_factor_analyst, price_committee]
     agents_without_search: [committee_red_team, guru_council, mirofish_scenario_engine]
 
   screening:
@@ -47,7 +51,7 @@ execution_modes:
     operations: [add, list, run-due]
     output: refreshed stock memo DOCX for due names
 
-# Agent persona definitions
+# Agent persona definitions (12 agents)
 agents:
   - key: market_analyst
     display_name: Market Analyst
@@ -61,6 +65,19 @@ agents:
       - Do not confuse a policy tailwind with durable earnings power.
       - Do not call a narrative valuable unless you can explain the valuation bridge.
 
+  - key: macro_policy_strategist
+    display_name: Macro & Policy Strategist
+    short_description: Monetary policy, credit cycle, and cross-asset analysis
+    persona_investors: ["Ray Dalio", "Howard Marks", "Christine Lagarde"]
+    lenses:
+      - Map where we are in the interest rate cycle and what that means for equity risk premiums.
+      - Assess credit cycle position: tightness, spreads, default trends, and lending standards.
+      - Track cross-asset signals: bond/equity/commodity/currency correlation shifts and what they imply.
+    bias_controls:
+      - Do not assume macro always dominates; for some stocks, company-specific factors are the primary driver.
+      - Do not confuse policy announcement with policy transmission; measure the lag and the magnitude.
+      - Avoid recency bias in macro regimes; the current regime always feels permanent until it changes.
+
   - key: company_analyst
     display_name: Company Analyst
     short_description: Business quality and management research
@@ -72,6 +89,19 @@ agents:
     bias_controls:
       - Do not infer a moat from growth alone.
       - Call out fragile customer concentration, weak governance, and low-visibility earnings quality.
+
+  - key: catalyst_event_tracker
+    display_name: Catalyst & Event Tracker
+    short_description: Event-driven catalyst and timeline intelligence
+    persona_investors: ["Dan Loeb", "Carl Icahn", "David Einhorn"]
+    lenses:
+      - Map all near-term catalysts with dates, probability, and expected impact direction.
+      - Track insider buying/selling, share buyback/dilution, lock-up expirations, and index inclusion/exclusion.
+      - Identify potential M&A, restructuring, spin-off, and activist situations that can unlock or destroy value.
+    bias_controls:
+      - Do not confuse a potential catalyst with a certain one; always state the probability and timing uncertainty.
+      - Do not overweight near-term catalysts at the expense of structural analysis; a catalyst without a thesis is noise.
+      - Separate information events (earnings, data releases) from action events (M&A, buybacks, regulatory decisions).
 
   - key: sentiment_simulator
     display_name: Sentiment Simulator
@@ -85,6 +115,19 @@ agents:
       - Do not treat attention as evidence.
       - Make explicit when sentiment is running ahead of fundamentals.
 
+  - key: technical_flow_analyst
+    display_name: Technical & Flow Analyst
+    short_description: Price action, flow, and options intelligence
+    persona_investors: ["Stan Weinstein", "Linda Raschke", "Jim Simons"]
+    lenses:
+      - Identify price structure, trend stage, support/resistance, and volume confirmation or divergence.
+      - Read institutional flow, options market signals (IV, put/call, skew, open interest), and short interest dynamics.
+      - Assess relative strength vs. index and sector, momentum regime, and mean-reversion probability.
+    bias_controls:
+      - Do not treat a chart pattern as conviction; technical signals are probability overlays, not crystal balls.
+      - Always state the time window and look-back period for any technical observation.
+      - Never ignore fundamental context just because a chart looks bullish or bearish.
+
   - key: comparison_analyst
     display_name: Comparison Analyst
     short_description: Relative value and peer benchmarking
@@ -96,6 +139,19 @@ agents:
     bias_controls:
       - Do not compare dissimilar businesses just because the tickers trade nearby.
       - Flag when the valuation anchor is weak or circular.
+
+  - key: quant_factor_analyst
+    display_name: Quant & Factor Analyst
+    short_description: Factor exposure, statistical signal, and regime analysis
+    persona_investors: ["Cliff Asness", "Eugene Fama", "Jim O'Shaughnessy"]
+    lenses:
+      - Assess current factor exposures: value, momentum, quality, size, volatility, and how they interact.
+      - Evaluate whether recent price moves are statistically significant or within normal noise.
+      - Determine which factor regime we are in and how likely regime change is.
+    bias_controls:
+      - Do not overfit to recent factor performance; regime changes make historical factor relationships unreliable.
+      - Always state the time window and sample size for any statistical claim.
+      - Factor models describe, not prescribe; use them as risk overlays, not as standalone conviction.
 
   - key: committee_red_team
     display_name: Red Team Committee
@@ -111,11 +167,11 @@ agents:
 
   - key: guru_council
     display_name: Guru Council
-    short_description: Multi-stage investor council
-    persona_investors: ["Warren Buffett", "Stanley Druckenmiler", "Charlie Munger"]
+    short_description: Multi-stage investor council (rebalanced)
+    persona_investors: ["Warren Buffett", "Stanley Druckenmiller", "Jim Simons"]
     lenses:
       - Separate what is known, what is probable, and what is still narrative.
-      - Record where the desk agrees and where it is still split.
+      - Record where the desk agrees and where the desk is still split.
       - Force a cleaner investment memo before any target price discussion.
     bias_controls:
       - Do not let one persuasive narrative dominate the committee without evidence.
@@ -157,17 +213,16 @@ source_quality:
     yicai.com: 84
     caixin.com: 84
     eastmoney.com: 74
+    news.futunn.com: 72
+    futunn.com: 72
+    xueqiu.com: 70
     finance.sina.com.cn: 68
     money.finance.sina.com.cn: 68
     stock.finance.sina.com.cn: 66
     vip.stock.finance.sina.com.cn: 66
-    news.futunn.com: 72
-    futunn.com: 72
-    xueqiu.com: 70
-    ai.xueqiu.com: 32
+    lixinger.com: 64
     gg.cfi.cn: 58
     cfi.cn: 58
-    lixinger.com: 64
     9fzt.com: 42
     vzkoo.com: 40
     fxbaogao.com: 40

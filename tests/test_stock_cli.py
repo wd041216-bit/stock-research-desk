@@ -1034,9 +1034,13 @@ def test_synthesis_prompt_requires_dense_buy_side_fields() -> None:
         market="CN",
         angle="中国故事",
         market_analyst=FakeResult("market_analyst", "市场结论"),
+        macro_policy_strategist=FakeResult("macro_policy_strategist", "宏观结论"),
         company_analyst=FakeResult("company_analyst", "公司结论"),
+        catalyst_event_tracker=FakeResult("catalyst_event_tracker", "催化结论"),
         sentiment_simulator=FakeResult("sentiment_simulator", "情绪结论"),
+        technical_flow_analyst=FakeResult("technical_flow_analyst", "技术面结论"),
         comparison_analyst=FakeResult("comparison_analyst", "对比结论"),
+        quant_factor_analyst=FakeResult("quant_factor_analyst", "因子结论"),
         committee_red_team=FakeResult("committee_red_team", "红队质询"),
         guru_council=FakeResult("guru_council", "议会共识"),
         mirofish_scenario_engine=FakeResult("mirofish_scenario_engine", "三种未来路径"),
@@ -1052,12 +1056,20 @@ def test_synthesis_prompt_requires_dense_buy_side_fields() -> None:
     assert "scenario_outlook" in prompt
     assert "target_prices" in prompt
     assert "distilled_notes" in prompt
+    assert "technical_view" in prompt
+    assert "factor_exposure" in prompt
+    assert "catalyst_calendar" in prompt
+    assert "macro_context" in prompt
+    assert "flow_signal" in prompt
 
 
 def test_normalize_verdict_maps_freeform_labels() -> None:
-    assert normalize_verdict("谨慎乐观") == "high_conviction"
-    assert normalize_verdict("回避") == "reject"
+    assert normalize_verdict("谨慎乐观") == "bullish"
+    assert normalize_verdict("回避") == "bearish"
     assert normalize_verdict("继续观察") == "watchlist"
+    assert normalize_verdict("neutral") == "neutral"
+    assert normalize_verdict("买入") == "bullish"
+    assert normalize_verdict("卖出") == "bearish"
 
 
 def test_normalize_confidence_maps_numeric_and_chinese_labels() -> None:

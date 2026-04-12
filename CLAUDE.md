@@ -22,11 +22,38 @@ Add {stock_name} to the watchlist with {interval} refresh cycle
 ## Skill Location
 
 The Claude Code skill definition is at:
-- `claude-skill/stock-research-desk/SKILL.md` — main skill manifest with full prompts, workflow, and output schema
-- `claude-skill/stock-research-desk/agents/claude.yaml` — agent configuration
-- `claude-skill/stock-research-desk/references/workflow.md` — detailed workflow reference
+- `claude-skill/stock-research-desk/SKILL.md` — main skill manifest with full prompts, workflow, and output schema (v0.3.0, 12-agent multi-factor pipeline)
+- `claude-skill/stock-research-desk/agents/claude.yaml` — agent configuration (12 personas)
+- `claude-skill/stock-research-desk/references/workflow.md` — detailed workflow reference (12-step pipeline)
+- `claude-skill/stock-research-desk/references/prompts.md` — full prompt templates for all 12 agents
 - `claude-skill/stock-research-desk/references/repo-map.md` — project file structure
 - `claude-skill/stock-research-desk/references/watchlist-automation.md` — watchlist scheduling
+
+## 12-Agent Multi-Factor Pipeline
+
+| Step | Agent | Search? | Focus |
+|------|-------|---------|-------|
+| 1 | market_analyst | Yes | Macro cycle, industry structure, China narrative |
+| 2 | macro_policy_strategist | Yes | Interest rates, credit cycle, policy transmission |
+| 3 | company_analyst | Yes | Business quality, management, financials |
+| 4 | catalyst_event_tracker | Yes | Earnings dates, insider activity, M&A, regulatory |
+| 5 | sentiment_simulator | Yes | Narrative temperature, participant psychology |
+| 6 | technical_flow_analyst | Yes | Price action, volume, institutional flow, options |
+| 7 | comparison_analyst | Yes | Peer comparison, relative valuation anchors |
+| 8 | quant_factor_analyst | Yes | Factor exposure, statistical significance, regime |
+| 9 | committee_red_team | No | Contrarian challenge, hidden fragility |
+| 10 | guru_council | No | Multi-perspective synthesis |
+| 11 | mirofish_scenario_engine | No | Bull/base/bear scenario projection |
+| 12 | price_committee | Yes | Target prices with explicit horizons |
+
+## Output Fields
+
+In addition to the original fields, the multi-factor pipeline produces:
+- `macro_context` — rate environment, credit cycle, policy stance
+- `flow_signal` — institutional flow, ETF dynamics, short interest
+- `technical_view` — support/resistance, trend stage, momentum signal
+- `factor_exposure` — value/momentum/quality/size/volatility ratings
+- `catalyst_calendar` — upcoming events with dates, impact, direction
 
 ## Two Skill Modes
 
@@ -41,9 +68,9 @@ Both produce the same bilingual DOCX delivery format.
 
 | File | Purpose |
 |------|---------|
-| `src/stock_research_desk/stock_cli.py` | Main CLI, agents, screening, email, watchlist |
-| `src/stock_research_desk/documents.py` | DOCX generation |
-| `src/stock_research_desk/persona_pack.py` | Investor persona blends |
+| `src/stock_research_desk/stock_cli.py` | Main CLI, agents, screening, email, watchlist (12-agent pipeline) |
+| `src/stock_research_desk/documents.py` | DOCX generation (bilingual, with multi-factor sections) |
+| `src/stock_research_desk/persona_pack.py` | 12 investor persona blends |
 | `src/stock_research_desk/runtime.py` | JSON parsing and repair |
 
 ## Key Configuration

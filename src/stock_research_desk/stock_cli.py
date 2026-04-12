@@ -887,6 +887,25 @@ def run_stock_research(
         max_fetches=max(2, config.max_fetches - 1),
         verbose=verbose,
     )
+    macro_policy_strategist = safe_run_agent_with_tools(
+        client=client,
+        name="macro_policy_strategist",
+        model=config.model,
+        think=config.think,
+        timeout_seconds=config.timeout_seconds,
+        system_prompt=build_macro_policy_strategist_prompt(config.max_results, config.max_fetches),
+        user_prompt=build_agent_user_prompt(
+            stock_name=stock_name,
+            ticker=ticker,
+            market=market,
+            angle=angle,
+            objective="分析利率周期、信用环境、货币政策立场、跨资产信号与政策传导路径。",
+            memory_context=memory_context,
+        ),
+        max_results=config.max_results,
+        max_fetches=max(2, config.max_fetches - 1),
+        verbose=verbose,
+    )
     company_analyst = safe_run_agent_with_tools(
         client=client,
         name="company_analyst",
@@ -906,6 +925,25 @@ def run_stock_research(
         max_fetches=config.max_fetches,
         verbose=verbose,
     )
+    catalyst_event_tracker = safe_run_agent_with_tools(
+        client=client,
+        name="catalyst_event_tracker",
+        model=config.model,
+        think=config.think,
+        timeout_seconds=config.timeout_seconds,
+        system_prompt=build_catalyst_event_tracker_prompt(config.max_results, config.max_fetches),
+        user_prompt=build_agent_user_prompt(
+            stock_name=stock_name,
+            ticker=ticker,
+            market=market,
+            angle=angle,
+            objective="搜集即将到来的催化事件、内部人动态、回购/增发计划与指数流动预期。",
+            memory_context=memory_context,
+        ),
+        max_results=config.max_results,
+        max_fetches=max(2, config.max_fetches - 1),
+        verbose=verbose,
+    )
     sentiment_simulator = safe_run_agent_with_tools(
         client=client,
         name="sentiment_simulator",
@@ -919,6 +957,25 @@ def run_stock_research(
             market=market,
             angle=angle,
             objective="搜集公开叙事并模拟四类参与者的反应：成长基金、卖方怀疑派、产业链经营者、题材交易型散户。",
+            memory_context=memory_context,
+        ),
+        max_results=config.max_results,
+        max_fetches=max(2, config.max_fetches - 1),
+        verbose=verbose,
+    )
+    technical_flow_analyst = safe_run_agent_with_tools(
+        client=client,
+        name="technical_flow_analyst",
+        model=config.model,
+        think=config.think,
+        timeout_seconds=config.timeout_seconds,
+        system_prompt=build_technical_flow_analyst_prompt(config.max_results, config.max_fetches),
+        user_prompt=build_agent_user_prompt(
+            stock_name=stock_name,
+            ticker=ticker,
+            market=market,
+            angle=angle,
+            objective="分析价格结构、趋势阶段、关键支撑/阻力、成交量信号、机构持仓与期权数据。",
             memory_context=memory_context,
         ),
         max_results=config.max_results,
@@ -942,6 +999,25 @@ def run_stock_research(
         ),
         max_results=config.max_results,
         max_fetches=config.max_fetches,
+        verbose=verbose,
+    )
+    quant_factor_analyst = safe_run_agent_with_tools(
+        client=client,
+        name="quant_factor_analyst",
+        model=config.model,
+        think=config.think,
+        timeout_seconds=config.timeout_seconds,
+        system_prompt=build_quant_factor_analyst_prompt(config.max_results, config.max_fetches),
+        user_prompt=build_agent_user_prompt(
+            stock_name=stock_name,
+            ticker=ticker,
+            market=market,
+            angle=angle,
+            objective="评估当前因子暴露、因子轮动信号、统计显著性与均值回归概率。",
+            memory_context=memory_context,
+        ),
+        max_results=config.max_results,
+        max_fetches=max(2, config.max_fetches - 1),
         verbose=verbose,
     )
     committee_red_team = run_deliberation_agent(
@@ -1019,9 +1095,13 @@ def run_stock_research(
     )
     distilled_notes = {
         market_analyst.name: distill_agent_note(name=market_analyst.name, content=market_analyst.content, tool_traces=market_analyst.tool_traces),
+        macro_policy_strategist.name: distill_agent_note(name=macro_policy_strategist.name, content=macro_policy_strategist.content, tool_traces=macro_policy_strategist.tool_traces),
         company_analyst.name: distill_agent_note(name=company_analyst.name, content=company_analyst.content, tool_traces=company_analyst.tool_traces),
+        catalyst_event_tracker.name: distill_agent_note(name=catalyst_event_tracker.name, content=catalyst_event_tracker.content, tool_traces=catalyst_event_tracker.tool_traces),
         sentiment_simulator.name: distill_agent_note(name=sentiment_simulator.name, content=sentiment_simulator.content, tool_traces=sentiment_simulator.tool_traces),
+        technical_flow_analyst.name: distill_agent_note(name=technical_flow_analyst.name, content=technical_flow_analyst.content, tool_traces=technical_flow_analyst.tool_traces),
         comparison_analyst.name: distill_agent_note(name=comparison_analyst.name, content=comparison_analyst.content, tool_traces=comparison_analyst.tool_traces),
+        quant_factor_analyst.name: distill_agent_note(name=quant_factor_analyst.name, content=quant_factor_analyst.content, tool_traces=quant_factor_analyst.tool_traces),
         committee_red_team.name: distill_agent_note(name=committee_red_team.name, content=committee_red_team.content, tool_traces=committee_red_team.tool_traces),
         guru_council.name: distill_agent_note(name=guru_council.name, content=guru_council.content, tool_traces=guru_council.tool_traces),
         mirofish_scenario_engine.name: distill_agent_note(name=mirofish_scenario_engine.name, content=mirofish_scenario_engine.content, tool_traces=mirofish_scenario_engine.tool_traces),
@@ -1054,9 +1134,13 @@ def run_stock_research(
     fallback_evidence = extract_evidence_from_traces(
         [
             market_analyst.tool_traces,
+            macro_policy_strategist.tool_traces,
             company_analyst.tool_traces,
+            catalyst_event_tracker.tool_traces,
             sentiment_simulator.tool_traces,
+            technical_flow_analyst.tool_traces,
             comparison_analyst.tool_traces,
+            quant_factor_analyst.tool_traces,
             price_committee.tool_traces,
         ]
     )
@@ -2805,6 +2889,56 @@ def build_comparison_analyst_prompt(max_results: int, max_fetches: int) -> str:
     )
 
 
+def build_macro_policy_strategist_prompt(max_results: int, max_fetches: int) -> str:
+    return (
+        "你是宏观与货币政策策略分析师。"
+        f"{render_persona_instruction('macro_policy_strategist')} "
+        "使用 web_search 与 web_fetch 搜集利率周期、信用环境、货币政策立场、财政刺激、监管风险、汇率动态与跨资产信号。"
+        f"Use no more than {max_results} search results per search and no more than {max_fetches} page fetches total. "
+        "必须同时评估：当前利率周期位置对股权风险溢价的影响、信用周期松紧程度、股/债/商品/汇率相关性变化对标的的传导路径。"
+        "不要假设宏观总是主导因子——有些标的的公司因素远比宏观重要——但要明确标注宏观传导路径和滞后效应。"
+        "输出中文 Markdown，包含：利率环境与股权风险溢价、信用周期位置、跨资产信号、政策传导路径、对本标的的宏观影响评估、待核实的宏观断点。"
+    )
+
+
+def build_catalyst_event_tracker_prompt(max_results: int, max_fetches: int) -> str:
+    return (
+        "你是事件驱动与催化日历追踪分析师。"
+        f"{render_persona_instruction('catalyst_event_tracker')} "
+        "使用 web_search 与 web_fetch 搜集即将到来的催化事件：财报发布日、监管决定时间线、M&A传闻、内部人买卖、股份回购/增发、锁定期到期、指数纳入/剔除、产品发布时间线、行业关键节点。"
+        f"Use no more than {max_results} search results per search and no more than {max_fetches} page fetches total. "
+        "每个催化事件必须标注：事件名称、预计日期、影响方向（看多/看空/中性）、确定性概率。"
+        "不要把潜在催化等同于确定催化——始终标注概率和时间不确定性。"
+        "不要因为短期催化而忽视结构性分析——没有论题支撑的催化只是噪音。"
+        "输出中文 Markdown，包含：催化日历（按时间排序）、内部人动态、回购/增发计划、指数/ETF流动预期、潜在事件与概率。"
+    )
+
+
+def build_technical_flow_analyst_prompt(max_results: int, max_fetches: int) -> str:
+    return (
+        "你是技术面与资金流分析师。"
+        f"{render_persona_instruction('technical_flow_analyst')} "
+        "使用 web_search 与 web_fetch 搜集当前价格、近期成交量、技术指标信号、机构持仓变化、期权市场数据、做空比例与资金流向。"
+        f"Use no more than {max_results} search results per search and no more than {max_fetches} page fetches total. "
+        "必须同时评估：价格结构与趋势阶段、关键支撑/阻力位、成交量确认或背离、相对强度（vs. 指数/板块）、期权隐含波动率与偏度、机构持仓与ETF流动。"
+        "技术信号是概率叠加层，不是水晶球——永远不要把图表形态当作确信。"
+        "输出中文 Markdown，包含：价格结构与趋势阶段、关键价位、成交量信号、相对强度、期权/做空/资金流信号、技术面综合判断。"
+    )
+
+
+def build_quant_factor_analyst_prompt(max_results: int, max_fetches: int) -> str:
+    return (
+        "你是量化因子分析师。"
+        f"{render_persona_instruction('quant_factor_analyst')} "
+        "使用 web_search 与 web_fetch 搜集因子表现数据、盈利修正趋势、统计筛选结果和因子轮动信号。"
+        f"Use no more than {max_results} search results per search and no more than {max_fetches} page fetches total. "
+        "必须同时评估：当前因子暴露（价值/动量/质量/规模/波动）、近期价格变动的统计显著性、当前因子轮动位置、均值回归概率。"
+        "不要过度拟合最近的因子表现——制度变化会让历史因子关系失效——始终标注统计窗口和样本量。"
+        "因子模型是描述工具，不是独立的投资信念——把它们用作风险叠加层。"
+        "输出中文 Markdown，包含：当前因子暴露评估、因子轮动信号、统计显著性判断、均值回归概率、风险模型贡献、因子面综合判断。"
+    )
+
+
 def build_red_team_prompt() -> str:
     return (
         "你是 buy-side 投委会里的红队负责人。"
@@ -2822,6 +2956,10 @@ def build_red_team_user_prompt(
     company_analyst: AgentRunResult,
     sentiment_simulator: AgentRunResult,
     comparison_analyst: AgentRunResult,
+    macro_policy_strategist: AgentRunResult,
+    catalyst_event_tracker: AgentRunResult,
+    technical_flow_analyst: AgentRunResult,
+    quant_factor_analyst: AgentRunResult,
 ) -> str:
     payload = {
         "stock_name": stock_name,
@@ -2830,6 +2968,10 @@ def build_red_team_user_prompt(
         "company_analyst": clip_text(company_analyst.content, 1400),
         "sentiment_simulator": clip_text(sentiment_simulator.content, 1400),
         "comparison_analyst": clip_text(comparison_analyst.content, 1400),
+        "macro_policy_strategist": clip_text(macro_policy_strategist.content, 1200),
+        "catalyst_event_tracker": clip_text(catalyst_event_tracker.content, 1200),
+        "technical_flow_analyst": clip_text(technical_flow_analyst.content, 1200),
+        "quant_factor_analyst": clip_text(quant_factor_analyst.content, 1200),
     }
     return f"请交叉质询以下研究结论，指出最需要继续核实的断点：{json.dumps(payload, ensure_ascii=False)}"
 
@@ -2851,16 +2993,24 @@ def build_guru_council_user_prompt(
     company_analyst: AgentRunResult,
     sentiment_simulator: AgentRunResult,
     comparison_analyst: AgentRunResult,
+    macro_policy_strategist: AgentRunResult,
+    catalyst_event_tracker: AgentRunResult,
+    technical_flow_analyst: AgentRunResult,
+    quant_factor_analyst: AgentRunResult,
     committee_red_team: AgentRunResult,
 ) -> str:
     payload = {
         "stock_name": stock_name,
         "ticker": ticker,
-        "market_analyst": clip_text(market_analyst.content, 1200),
-        "company_analyst": clip_text(company_analyst.content, 1200),
-        "sentiment_simulator": clip_text(sentiment_simulator.content, 1200),
-        "comparison_analyst": clip_text(comparison_analyst.content, 1200),
-        "committee_red_team": clip_text(committee_red_team.content, 1200),
+        "market_analyst": clip_text(market_analyst.content, 1000),
+        "company_analyst": clip_text(company_analyst.content, 1000),
+        "sentiment_simulator": clip_text(sentiment_simulator.content, 1000),
+        "comparison_analyst": clip_text(comparison_analyst.content, 1000),
+        "macro_policy_strategist": clip_text(macro_policy_strategist.content, 1000),
+        "catalyst_event_tracker": clip_text(catalyst_event_tracker.content, 1000),
+        "technical_flow_analyst": clip_text(technical_flow_analyst.content, 1000),
+        "quant_factor_analyst": clip_text(quant_factor_analyst.content, 1000),
+        "committee_red_team": clip_text(committee_red_team.content, 1000),
     }
     return f"请把这些 desk 的结论整理成一份股神议会议程纪要：{json.dumps(payload, ensure_ascii=False)}"
 
@@ -2882,18 +3032,26 @@ def build_mirofish_scenario_user_prompt(
     company_analyst: AgentRunResult,
     sentiment_simulator: AgentRunResult,
     comparison_analyst: AgentRunResult,
+    macro_policy_strategist: AgentRunResult,
+    catalyst_event_tracker: AgentRunResult,
+    technical_flow_analyst: AgentRunResult,
+    quant_factor_analyst: AgentRunResult,
     committee_red_team: AgentRunResult,
     guru_council: AgentRunResult,
 ) -> str:
     payload = {
         "stock_name": stock_name,
         "ticker": ticker,
-        "market_analyst": clip_text(market_analyst.content, 1200),
-        "company_analyst": clip_text(company_analyst.content, 1200),
-        "sentiment_simulator": clip_text(sentiment_simulator.content, 1200),
-        "comparison_analyst": clip_text(comparison_analyst.content, 1200),
-        "committee_red_team": clip_text(committee_red_team.content, 1200),
-        "guru_council": clip_text(guru_council.content, 1200),
+        "market_analyst": clip_text(market_analyst.content, 1000),
+        "company_analyst": clip_text(company_analyst.content, 1000),
+        "sentiment_simulator": clip_text(sentiment_simulator.content, 1000),
+        "comparison_analyst": clip_text(comparison_analyst.content, 1000),
+        "macro_policy_strategist": clip_text(macro_policy_strategist.content, 1000),
+        "catalyst_event_tracker": clip_text(catalyst_event_tracker.content, 1000),
+        "technical_flow_analyst": clip_text(technical_flow_analyst.content, 1000),
+        "quant_factor_analyst": clip_text(quant_factor_analyst.content, 1000),
+        "committee_red_team": clip_text(committee_red_team.content, 1000),
+        "guru_council": clip_text(guru_council.content, 1000),
     }
     return f"请基于这些研究结果推演未来世界分支，并明确时间线和触发器：{json.dumps(payload, ensure_ascii=False)}"
 
@@ -2918,6 +3076,10 @@ def build_buy_side_synthesis_prompt(
     company_analyst: AgentRunResult,
     sentiment_simulator: AgentRunResult,
     comparison_analyst: AgentRunResult,
+    macro_policy_strategist: AgentRunResult,
+    catalyst_event_tracker: AgentRunResult,
+    technical_flow_analyst: AgentRunResult,
+    quant_factor_analyst: AgentRunResult,
     committee_red_team: AgentRunResult,
     guru_council: AgentRunResult,
     mirofish_scenario_engine: AgentRunResult,
@@ -2934,6 +3096,10 @@ def build_buy_side_synthesis_prompt(
         "company_analyst": clip_text(company_analyst.content),
         "sentiment_simulator": clip_text(sentiment_simulator.content),
         "comparison_analyst": clip_text(comparison_analyst.content),
+        "macro_policy_strategist": clip_text(macro_policy_strategist.content),
+        "catalyst_event_tracker": clip_text(catalyst_event_tracker.content),
+        "technical_flow_analyst": clip_text(technical_flow_analyst.content),
+        "quant_factor_analyst": clip_text(quant_factor_analyst.content),
         "committee_red_team": clip_text(committee_red_team.content, 1800),
         "guru_council": clip_text(guru_council.content, 1800),
         "mirofish_scenario_engine": clip_text(mirofish_scenario_engine.content, 1800),
@@ -2944,6 +3110,10 @@ def build_buy_side_synthesis_prompt(
             company_analyst.name: extract_evidence_from_traces([company_analyst.tool_traces])[:6],
             sentiment_simulator.name: extract_evidence_from_traces([sentiment_simulator.tool_traces])[:6],
             comparison_analyst.name: extract_evidence_from_traces([comparison_analyst.tool_traces])[:6],
+            macro_policy_strategist.name: extract_evidence_from_traces([macro_policy_strategist.tool_traces])[:6],
+            catalyst_event_tracker.name: extract_evidence_from_traces([catalyst_event_tracker.tool_traces])[:6],
+            technical_flow_analyst.name: extract_evidence_from_traces([technical_flow_analyst.tool_traces])[:6],
+            quant_factor_analyst.name: extract_evidence_from_traces([quant_factor_analyst.tool_traces])[:6],
             price_committee.name: extract_evidence_from_traces([price_committee.tool_traces])[:6],
         },
     }
@@ -2951,20 +3121,24 @@ def build_buy_side_synthesis_prompt(
         "Return a single JSON object only with these keys: "
         "company_name, ticker, exchange, market, quick_take, verdict, confidence, recent_developments, market_map, business_summary, "
         "china_story, sentiment_simulation, peer_comparison, committee_takeaways, scenario_outlook, debate_notes, "
-        "bull_case, bear_case, catalysts, risks, valuation_view, target_prices, evidence, next_questions. "
+        "bull_case, bear_case, catalysts, risks, valuation_view, target_prices, evidence, next_questions, technical_view, factor_exposure, catalyst_calendar, macro_context, flow_signal. "
         "bull_case, bear_case, catalysts, risks, next_questions must be arrays with dense, buy-side quality bullet points. "
         "evidence must include title, url, claim, stance. "
         "target_prices must be an object with short_term, medium_term, long_term; each has price, horizon, thesis. "
+        "technical_view must be a string summarizing key support/resistance, trend stage, and momentum signal. "
+        "factor_exposure must be an object with value, momentum, quality, size, volatility — each rated high/medium/low or strong/neutral/weak. "
+        "catalyst_calendar must be an array of upcoming events with event, date, impact (high/medium/low), direction (bullish/bearish/neutral). "
+        "macro_context must be a string summarizing rate environment, credit cycle position, and policy stance. "
+        "flow_signal must be a string summarizing institutional flow, ETF dynamics, and short interest. "
         "Keep quick_take, market_map, business_summary, china_story, sentiment_simulation, peer_comparison, committee_takeaways, scenario_outlook, debate_notes, valuation_view concise and information-dense. "
         "recent_developments must separately summarize the latest effective information: recent announcements, recent earnings/order/customer signals, price/news flow, and near-term volatility implications. "
         "Do not overwrite older historical context; use older material for business quality and moat history, and recent material for marginal change and market volatility. "
         "Do not return Markdown, only structured JSON. "
         "If any agent note is trace-like or noisy, distill it into concrete investment-relevant claims rather than repeating page titles or navigation text. "
         "Use the price committee and MiroFish scenario engine to assign short-, medium-, and long-term target prices with explicit time horizons. "
-        "Use the three agent notes and their evidence traces faithfully, and make uncertainty explicit. "
+        "Use all agent notes and their evidence traces faithfully, and make uncertainty explicit. "
         f"Input: {json.dumps(payload, ensure_ascii=False)}"
     )
-
 
 def clip_text(value: str, limit: int = 2200) -> str:
     text = value.strip()
@@ -3033,6 +3207,10 @@ def synthesize_buy_side_report(
     company_analyst: AgentRunResult,
     sentiment_simulator: AgentRunResult,
     comparison_analyst: AgentRunResult,
+    macro_policy_strategist: AgentRunResult,
+    catalyst_event_tracker: AgentRunResult,
+    technical_flow_analyst: AgentRunResult,
+    quant_factor_analyst: AgentRunResult,
     committee_red_team: AgentRunResult,
     guru_council: AgentRunResult,
     mirofish_scenario_engine: AgentRunResult,
@@ -3063,6 +3241,10 @@ def synthesize_buy_side_report(
                     company_analyst=company_analyst,
                     sentiment_simulator=sentiment_simulator,
                     comparison_analyst=comparison_analyst,
+                    macro_policy_strategist=macro_policy_strategist,
+                    catalyst_event_tracker=catalyst_event_tracker,
+                    technical_flow_analyst=technical_flow_analyst,
+                    quant_factor_analyst=quant_factor_analyst,
                     committee_red_team=committee_red_team,
                     guru_council=guru_council,
                     mirofish_scenario_engine=mirofish_scenario_engine,
@@ -3416,6 +3598,40 @@ def run_agent_with_tools(
     raise RuntimeError(f"{name} returned an empty cloud synthesis response.")
 
 
+def normalize_factor_exposure(raw: Any) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        return {"value": "n/a", "momentum": "n/a", "quality": "n/a", "size": "n/a", "volatility": "n/a"}
+    result = {}
+    for key in ("value", "momentum", "quality", "size", "volatility"):
+        val = str(raw.get(key, "")).strip().lower()
+        if val in ("high", "medium", "low", "strong", "neutral", "weak", "large", "mid", "small"):
+            result[key] = val
+        else:
+            result[key] = "n/a"
+    return result
+
+
+def normalize_catalyst_calendar(raw: Any) -> list[dict[str, str]]:
+    if not isinstance(raw, list):
+        return []
+    result = []
+    for item in raw[:10]:
+        if not isinstance(item, dict):
+            continue
+        entry = {
+            "event": str(item.get("event", "")).strip(),
+            "date": str(item.get("date", "")).strip(),
+            "impact": str(item.get("impact", "medium")).strip().lower(),
+            "direction": str(item.get("direction", "neutral")).strip().lower(),
+        }
+        if entry["impact"] not in ("high", "medium", "low"):
+            entry["impact"] = "medium"
+        if entry["direction"] not in ("bullish", "bearish", "neutral"):
+            entry["direction"] = "neutral"
+        result.append(entry)
+    return result
+
+
 def normalize_report_payload(
     payload: dict[str, Any],
     *,
@@ -3482,6 +3698,21 @@ def normalize_report_payload(
     scenario_outlook = choose_section_text(str(payload.get("scenario_outlook") or ""), scenario_fallback, "多未来情景仍需继续补证，当前只能维持 base-case watchlist。", market=market)
     debate_notes = choose_section_text(str(payload.get("debate_notes") or ""), red_team_fallback, "当前红队质询仍不足，需继续验证关键假设。", market=market)
     valuation_view = str(payload.get("valuation_view") or "当前版本没有足够公开证据支持更细的估值判断。")
+    macro_context = choose_section_text(
+        str(payload.get("macro_context") or ""),
+        ((distilled_notes or {}).get("macro_policy_strategist") or {}).get("summary", ""),
+        "宏观环境与政策传导路径仍需继续补证。",
+        market=market,
+    )
+    flow_signal = choose_section_text(
+        str(payload.get("flow_signal") or ""),
+        ((distilled_notes or {}).get("technical_flow_analyst") or {}).get("summary", ""),
+        "资金流向与机构持仓信号仍需继续补证。",
+        market=market,
+    )
+    technical_view = str(payload.get("technical_view") or "当前版本没有足够技术面数据支持更细的技术判断。")
+    factor_exposure = normalize_factor_exposure(payload.get("factor_exposure"))
+    catalyst_calendar = normalize_catalyst_calendar(payload.get("catalyst_calendar"))
     if distilled_notes:
         bull_case = choose_section_list(bull_case, ((distilled_notes.get("company_analyst") or {}).get("bull_case") or []))
         bear_case = choose_section_list(bear_case, ((distilled_notes.get("company_analyst") or {}).get("bear_case") or []))
@@ -3534,6 +3765,11 @@ def normalize_report_payload(
         catalysts=catalysts,
         risks=risks,
         valuation_view=valuation_view,
+        macro_context=macro_context,
+        flow_signal=flow_signal,
+        technical_view=technical_view,
+        factor_exposure=factor_exposure,
+        catalyst_calendar=catalyst_calendar,
         target_prices=target_prices,
         evidence=evidence,
         next_questions=next_questions,
@@ -3564,11 +3800,50 @@ def normalize_report_payload(
         "catalysts": catalysts,
         "risks": risks,
         "valuation_view": valuation_view,
+        "macro_context": macro_context,
+        "flow_signal": flow_signal,
+        "technical_view": technical_view,
+        "factor_exposure": factor_exposure,
+        "catalyst_calendar": catalyst_calendar,
         "target_prices": target_prices,
         "evidence": evidence,
         "next_questions": next_questions,
         "report_markdown": report_markdown,
     }
+
+
+def normalize_factor_exposure(raw: Any) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        return {"value": "n/a", "momentum": "n/a", "quality": "n/a", "size": "n/a", "volatility": "n/a"}
+    result = {}
+    for key in ("value", "momentum", "quality", "size", "volatility"):
+        val = str(raw.get(key, "")).strip().lower()
+        if val in ("high", "medium", "low", "strong", "neutral", "weak", "large", "mid", "small"):
+            result[key] = val
+        else:
+            result[key] = "n/a"
+    return result
+
+
+def normalize_catalyst_calendar(raw: Any) -> list[dict[str, str]]:
+    if not isinstance(raw, list):
+        return []
+    result = []
+    for item in raw[:10]:
+        if not isinstance(item, dict):
+            continue
+        entry = {
+            "event": str(item.get("event", "")).strip(),
+            "date": str(item.get("date", "")).strip(),
+            "impact": str(item.get("impact", "medium")).strip().lower(),
+            "direction": str(item.get("direction", "neutral")).strip().lower(),
+        }
+        if entry["impact"] not in ("high", "medium", "low"):
+            entry["impact"] = "medium"
+        if entry["direction"] not in ("bullish", "bearish", "neutral"):
+            entry["direction"] = "neutral"
+        result.append(entry)
+    return result
 
 
 def normalize_strings(value: Any) -> list[str]:
@@ -3673,6 +3948,10 @@ def agent_output_outline(name: str) -> str:
         "company_analyst": "业务概览；客户与订单；财务与经营信号；多头逻辑；空头逻辑；催化剂；主要风险。尽量使用 bullet points。",
         "sentiment_simulator": "当前叙事温度；多头叙事；空头叙事；成长基金视角；卖方怀疑派视角；产业链经营者视角；题材交易型散户视角。",
         "comparison_analyst": "可比公司；相对优势；相对劣势；估值锚；为什么值得研究；为什么不值得优先研究。",
+        "macro_policy_strategist": "利率环境与股权风险溢价；信用周期位置；跨资产信号；政策传导路径；宏观影响评估；待核实的宏观断点。尽量使用 bullet points。",
+        "catalyst_event_tracker": "催化日历（按时间排序）；内部人动态；回购/增发计划；指数/ETF流动预期；潜在事件与概率。尽量使用 bullet points。",
+        "technical_flow_analyst": "价格结构与趋势阶段；关键价位；成交量信号；相对强度；期权/做空/资金流信号；技术面综合判断。尽量使用 bullet points。",
+        "quant_factor_analyst": "因子暴露评估；因子轮动信号；统计显著性判断；均值回归概率；风险模型贡献；因子面综合判断。尽量使用 bullet points。",
     }
     return outlines.get(name, "给出结论、证据强弱、待核实断点。")
 
@@ -3826,6 +4105,38 @@ def distill_agent_note(*, name: str, content: str, tool_traces: list[dict[str, A
             sanitize_deliberation_text(text),
         )
         return {"summary": summary or sanitize_deliberation_text(fallback_text or text)}
+    if name == "macro_policy_strategist":
+        signal_lines = evidence_signal_lines(tool_traces)
+        summary = preferred_section_text(
+            extract_markdown_sections(text, "利率环境", "信用周期", "跨资产信号", "政策传导路径", "宏观影响评估", "待核实问题"),
+            evidence_summary_for_role("macro_policy_strategist", signal_lines)
+            or extract_markdown_sections(fallback_text, "利率环境", "信用周期", "跨资产信号", "政策传导路径", "宏观影响评估", "待核实问题"),
+        )
+        return {"summary": summary or fallback_text}
+    if name == "catalyst_event_tracker":
+        signal_lines = evidence_signal_lines(tool_traces)
+        summary = preferred_section_text(
+            extract_markdown_sections(text, "催化日历", "内部人动态", "回购/增发计划", "指数/ETF流动预期", "潜在事件与概率"),
+            evidence_summary_for_role("catalyst_event_tracker", signal_lines)
+            or extract_markdown_sections(fallback_text, "催化日历", "内部人动态", "回购/增发计划", "指数/ETF流动预期", "潜在事件与概率"),
+        )
+        return {"summary": summary or fallback_text}
+    if name == "technical_flow_analyst":
+        signal_lines = evidence_signal_lines(tool_traces)
+        summary = preferred_section_text(
+            extract_markdown_sections(text, "价格结构与趋势阶段", "关键价位", "成交量信号", "相对强度", "期权/做空/资金流信号", "技术面综合判断"),
+            evidence_summary_for_role("technical_flow_analyst", signal_lines)
+            or extract_markdown_sections(fallback_text, "价格结构与趋势阶段", "关键价位", "成交量信号", "相对强度", "期权/做空/资金流信号", "技术面综合判断"),
+        )
+        return {"summary": summary or fallback_text}
+    if name == "quant_factor_analyst":
+        signal_lines = evidence_signal_lines(tool_traces)
+        summary = preferred_section_text(
+            extract_markdown_sections(text, "因子暴露评估", "因子轮动信号", "统计显著性判断", "均值回归概率", "风险模型贡献", "因子面综合判断"),
+            evidence_summary_for_role("quant_factor_analyst", signal_lines)
+            or extract_markdown_sections(fallback_text, "因子暴露评估", "因子轮动信号", "统计显著性判断", "均值回归概率", "风险模型贡献", "因子面综合判断"),
+        )
+        return {"summary": summary or fallback_text}
     return {"summary": preferred_section_text(text, fallback_text) or fallback_text}
 
 
@@ -5522,12 +5833,40 @@ def render_markdown(
     catalysts: list[str],
     risks: list[str],
     valuation_view: str,
-    target_prices: dict[str, dict[str, str]],
-    evidence: list[dict[str, str]],
-    next_questions: list[str],
+    macro_context: str = "",
+    flow_signal: str = "",
+    technical_view: str = "",
+    factor_exposure: dict[str, str] | None = None,
+    catalyst_calendar: list[dict[str, str]] | None = None,
+    target_prices: dict[str, dict[str, str]] | None = None,
+    evidence: list[dict[str, str]] | None = None,
+    next_questions: list[str] | None = None,
 ) -> str:
     def bullet(items: list[str]) -> str:
         return "\n".join(f"- {item}" for item in items) if items else "- 暂无充分结论，需继续补证。"
+
+    def factor_exposure_block() -> str:
+        fe = factor_exposure or {}
+        factor_labels = {"value": "价值", "momentum": "动量", "quality": "质量", "size": "规模", "volatility": "波动率"}
+        lines = []
+        for key in ("value", "momentum", "quality", "size", "volatility"):
+            rating = fe.get(key, "n/a")
+            label = factor_labels.get(key, key)
+            lines.append(f"- {label}：{rating}")
+        return "\n".join(lines) if any(fe.get(k) not in (None, "", "n/a") for k in factor_labels) else "因子暴露数据暂缺，需继续补证。"
+
+    def catalyst_calendar_block() -> str:
+        cal = catalyst_calendar or []
+        if not cal:
+            return "催化剂日历暂缺，需继续补证。"
+        lines = []
+        for item in cal:
+            event = item.get("event", "")
+            date = item.get("date", "")
+            impact = item.get("impact", "")
+            direction = item.get("direction", "")
+            lines.append(f"- {date} | {event} | 影响：{impact} | 方向：{direction}")
+        return "\n".join(lines)
 
     def target_price_block() -> str:
         lines: list[str] = []
@@ -5604,6 +5943,21 @@ def render_markdown(
             "## 估值视角",
             valuation_view,
             "",
+            "## 宏观环境",
+            macro_context,
+            "",
+            "## 资金流向信号",
+            flow_signal,
+            "",
+            "## 技术面视角",
+            technical_view,
+            "",
+            "## 因子暴露",
+            factor_exposure_block(),
+            "",
+            "## 催化剂日历",
+            catalyst_calendar_block(),
+            "",
             "## 目标价与时间框架",
             target_price_block(),
             "",
@@ -5628,20 +5982,33 @@ def slugify(value: str) -> str:
 
 def normalize_verdict(value: str) -> str:
     lowered = value.strip().lower()
-    if any(token in value for token in ["高确信", "高 conviction", "强烈看好", "积极", "乐观", "超配", "看多"]) or lowered in {"high_conviction", "overweight", "buy"} or "high" in lowered:
-        return "high_conviction"
-    if any(token in value for token in ["拒绝", "回避", "谨慎看空", "负面", "减持", "低配"]) or lowered in {"reject", "underweight", "sell"}:
-        return "reject"
+    # Bullish variants
+    if (
+        any(token in value for token in ["高确信", "强烈看好", "积极", "乐观", "超配", "看多", "买入"])
+        or lowered in {"high_conviction", "overweight", "buy", "strong_buy", "bullish"}
+        or "high" in lowered
+    ):
+        return "bullish"
+    # Bearish variants
+    if (
+        any(token in value for token in ["拒绝", "回避", "谨慎看空", "负面", "减持", "低配", "看空", "卖出"])
+        or lowered in {"reject", "underweight", "sell", "negative", "bearish"}
+    ):
+        return "bearish"
+    # Neutral
+    if lowered in {"neutral", "中立"}:
+        return "neutral"
+    # Default to watchlist (covers: hold, 观望, 中性, watch, watching, etc.)
     return "watchlist"
 
 
 def normalize_confidence(value: str) -> str:
     lowered = value.strip().lower()
-    if lowered in {"5", "4", "high", "strong"} or any(token in value for token in ["高", "较高"]):
+    if lowered in {"5", "4", "high", "strong", "very_high", "很高", "高确信"} or any(token in value for token in ["高", "较高"]):
         return "high"
-    if lowered in {"3", "medium", "moderate"} or any(token in value for token in ["中", "一般"]):
+    if lowered in {"3", "medium", "moderate", "中等", "一般"} or any(token in value for token in ["中"]):
         return "medium"
-    if lowered in {"2", "1", "low", "weak"} or any(token in value for token in ["低", "偏低"]):
+    if lowered in {"2", "1", "low", "weak", "不确定"} or any(token in value for token in ["低", "偏低"]):
         return "low"
     return "medium"
 

@@ -36,32 +36,39 @@ This skill makes Codex the main brain. The preferred runtime is:
 - only use `cross-validated-search` if a search or fetch step explicitly errors
 - after a fallback step, go back to Codex web search/open for the next query
 
-### 3. Multi-agent research structure
+### 3. Multi-agent research structure (12-step multi-factor pipeline)
 
 Run the analysis through this sequence:
 
-1. market analyst
-2. company analyst
-3. sentiment simulator
-4. comparison analyst
-5. committee red team
-6. guru council
-7. MiroFish-style scenario engine
-8. price committee
+| Step | Agent | Search? | Focus |
+|------|-------|---------|-------|
+| 1 | market_analyst | Yes | Macro cycle, industry structure, China narrative |
+| 2 | macro_policy_strategist | Yes | Interest rates, credit cycle, policy transmission |
+| 3 | company_analyst | Yes | Business quality, management, financials |
+| 4 | catalyst_event_tracker | Yes | Earnings dates, insider activity, M&A, regulatory |
+| 5 | sentiment_simulator | Yes | Narrative temperature, participant psychology |
+| 6 | technical_flow_analyst | Yes | Price action, volume, institutional flow, options |
+| 7 | comparison_analyst | Yes | Peer comparison, relative valuation anchors |
+| 8 | quant_factor_analyst | Yes | Factor exposure, statistical significance, regime |
+| 9 | committee_red_team | No | Contrarian challenge, hidden fragility |
+| 10 | guru_council | No | Multi-perspective synthesis |
+| 11 | mirofish_scenario_engine | No | Bull/base/bear scenario projection |
+| 12 | price_committee | Yes | Target prices with explicit horizons |
 
 The output should always include:
 
-- quick take
-- business summary
-- market map
-- peer comparison
-- bull case
-- bear case
-- catalysts
-- risks
-- red-team dissent
+- quick take, verdict, confidence
+- business summary, market map, china story
+- macro context, flow signal
+- sentiment simulation, peer comparison
+- technical view, factor exposure
+- catalyst calendar
+- committee takeaways, debate notes
+- bull case, bear case, catalysts, risks
+- valuation view
 - multi-future scenario outlook
 - short / medium / long target prices with time horizons
+- evidence list with source quality scores
 
 ### 4. Delivery
 

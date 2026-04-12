@@ -61,6 +61,11 @@ def build_english_report_fallback(payload: dict[str, Any]) -> dict[str, Any]:
         "scenario_outlook": english_safe_text(str(payload.get("scenario_outlook") or ""), "Base case remains watchlist; bull case needs verified order acceleration; bear case is narrative overshoot without fundamental confirmation."),
         "debate_notes": english_safe_text(str(payload.get("debate_notes") or ""), "Red-team focus: customer concentration, evidence quality, order durability, and whether the valuation anchor is robust."),
         "valuation_view": english_safe_text(str(payload.get("valuation_view") or ""), f"Fallback valuation view: {target_snapshot}. Treat these as scenario targets, not investment advice."),
+        "macro_context": english_safe_text(str(payload.get("macro_context") or ""), "Macro context translation unavailable."),
+        "flow_signal": english_safe_text(str(payload.get("flow_signal") or ""), "Flow signal translation unavailable."),
+        "technical_view": english_safe_text(str(payload.get("technical_view") or ""), "Technical view translation unavailable."),
+        "factor_exposure": payload.get("factor_exposure") or {},
+        "catalyst_calendar": payload.get("catalyst_calendar") or [],
         "bull_case": _english_safe_list(payload.get("bull_case"), "Bull case: upside requires verified order quality, customer expansion, and durable margin or mix improvement."),
         "bear_case": _english_safe_list(payload.get("bear_case"), "Bear case: the narrative may outrun evidence if customer concentration, order durability, or valuation anchors remain weak."),
         "catalysts": _english_safe_list(payload.get("catalysts"), "Catalysts: new orders, customer proof, margin evidence, and sector capital-expenditure recovery."),
@@ -473,6 +478,46 @@ def _add_evidence_section(doc: Document, labels: dict[str, str], evidence: list[
     _format_table(table)
 
 
+def _add_factor_exposure_section(doc: Document, labels: dict[str, str], factor_data: dict[str, Any]) -> None:
+    """Add a factor exposure table to the document."""
+    _format_paragraph(doc.add_heading(labels["factor_exposure"], level=1))
+    table = doc.add_table(rows=1, cols=2)
+    table.style = "Table Grid"
+    headers = table.rows[0].cells
+    headers[0].text = labels["factor_name"]
+    headers[1].text = labels["factor_rating"]
+    factor_keys = ("value", "momentum", "quality", "size", "volatility")
+    for key in factor_keys:
+        row = table.add_row().cells
+        row[0].text = labels.get(f"factor_{key}", key)
+        rating = str((factor_data or {}).get(key) or "n/a")
+        row[1].text = rating
+    _format_table(table)
+
+
+def _add_catalyst_calendar_section(doc: Document, labels: dict[str, str], calendar: list[dict[str, str]]) -> None:
+    """Add a catalyst calendar table to the document."""
+    _format_paragraph(doc.add_heading(labels["catalyst_calendar"], level=1))
+    if not calendar:
+        p = doc.add_paragraph(labels.get("no_items", "No items."))
+        _format_paragraph(p, size=BODY_SIZE)
+        return
+    table = doc.add_table(rows=1, cols=4)
+    table.style = "Table Grid"
+    headers = table.rows[0].cells
+    headers[0].text = labels["catalyst_event"]
+    headers[1].text = labels["catalyst_date"]
+    headers[2].text = labels["catalyst_impact"]
+    headers[3].text = labels["catalyst_direction"]
+    for item in calendar[:10]:
+        row = table.add_row().cells
+        row[0].text = str(item.get("event", ""))
+        row[1].text = str(item.get("date", ""))
+        row[2].text = str(item.get("impact", ""))
+        row[3].text = str(item.get("direction", ""))
+    _format_table(table)
+
+
 def _append_report_section(doc: Document, *, payload: dict[str, Any], language: str, include_title: bool = True) -> None:
     labels = _report_labels(language)
     if include_title:
@@ -492,6 +537,8 @@ def _append_report_section(doc: Document, *, payload: dict[str, Any], language: 
     _add_heading_and_paragraph(doc, labels["business_summary"], str(payload.get("business_summary") or ""))
     _add_heading_and_paragraph(doc, labels["market_map"], str(payload.get("market_map") or ""))
     _add_heading_and_paragraph(doc, labels["china_story"], str(payload.get("china_story") or ""))
+    _add_heading_and_paragraph(doc, labels["macro_context"], str(payload.get("macro_context") or ""))
+    _add_heading_and_paragraph(doc, labels["flow_signal"], str(payload.get("flow_signal") or ""))
     _add_heading_and_paragraph(doc, labels["sentiment_simulation"], str(payload.get("sentiment_simulation") or ""))
     _add_heading_and_paragraph(doc, labels["peer_comparison"], str(payload.get("peer_comparison") or ""))
     _add_heading_and_paragraph(doc, labels["committee_takeaways"], str(payload.get("committee_takeaways") or ""))
@@ -499,8 +546,11 @@ def _append_report_section(doc: Document, *, payload: dict[str, Any], language: 
     _add_bullet_section(doc, labels["bull_case"], list(payload.get("bull_case") or []), labels["no_items"])
     _add_bullet_section(doc, labels["bear_case"], list(payload.get("bear_case") or []), labels["no_items"])
     _add_bullet_section(doc, labels["catalysts"], list(payload.get("catalysts") or []), labels["no_items"])
+    _add_catalyst_calendar_section(doc, labels, list(payload.get("catalyst_calendar") or []))
     _add_bullet_section(doc, labels["risks"], list(payload.get("risks") or []), labels["no_items"])
     _add_heading_and_paragraph(doc, labels["valuation_view"], str(payload.get("valuation_view") or ""))
+    _add_heading_and_paragraph(doc, labels["technical_view"], str(payload.get("technical_view") or ""))
+    _add_factor_exposure_section(doc, labels, payload.get("factor_exposure") or {})
     _add_target_price_section(doc, labels, payload.get("target_prices") or {})
     _add_heading_and_paragraph(doc, labels["debate_notes"], str(payload.get("debate_notes") or ""))
     _add_evidence_section(doc, labels, list(payload.get("evidence") or []))
@@ -601,6 +651,22 @@ def _report_labels(language: str) -> dict[str, str]:
             "medium_term": "Medium Term",
             "long_term": "Long Term",
             "translation_unavailable": "Translation unavailable in this run.",
+            "macro_context": "Macro Context",
+            "flow_signal": "Flow Signal",
+            "technical_view": "Technical View",
+            "factor_exposure": "Factor Exposure",
+            "catalyst_calendar": "Catalyst Calendar",
+            "factor_value": "Value",
+            "factor_momentum": "Momentum",
+            "factor_quality": "Quality",
+            "factor_size": "Size",
+            "factor_volatility": "Volatility",
+            "factor_name": "Factor",
+            "factor_rating": "Rating",
+            "catalyst_event": "Event",
+            "catalyst_date": "Date",
+            "catalyst_impact": "Impact",
+            "catalyst_direction": "Direction",
         }
     return {
         "memo_title": "研究备忘录",
@@ -639,6 +705,22 @@ def _report_labels(language: str) -> dict[str, str]:
         "medium_term": "中期",
         "long_term": "长期",
         "translation_unavailable": "当前证据仍不足，需要继续核实。",
+        "macro_context": "宏观环境",
+        "flow_signal": "资金流向信号",
+        "technical_view": "技术面视角",
+        "factor_exposure": "因子暴露",
+        "catalyst_calendar": "催化剂日历",
+        "factor_value": "价值",
+        "factor_momentum": "动量",
+        "factor_quality": "质量",
+        "factor_size": "规模",
+        "factor_volatility": "波动率",
+        "factor_name": "因子",
+        "factor_rating": "评级",
+        "catalyst_event": "事件",
+        "catalyst_date": "日期",
+        "catalyst_impact": "影响",
+        "catalyst_direction": "方向",
     }
 
 

@@ -2,7 +2,7 @@
 
 This document describes the detailed workflow for each mode in the Stock Research Desk.
 
-## Single-Name Research Workflow
+## Single-Name Research Workflow (12 Steps)
 
 ### Step 1: Resolve Identity
 
@@ -27,7 +27,26 @@ This document describes the detailed workflow for each mode in the Stock Researc
 - `{stock_name} 宏观 政策 催化`
 - `{sector} 估值 分位 周期`
 
-### Step 3: Company Analyst
+### Step 3: Macro & Policy Strategist
+
+**Search focus:**
+- Interest rate cycle position and equity risk premium implications
+- Credit cycle: spreads, default trends, lending standards
+- Monetary policy stance, fiscal stimulus, regulatory risk
+- Cross-asset signals: bond/equity/commodity/currency correlation shifts
+- FX dynamics and transmission paths to the target stock
+
+**Output fields:**
+- `macro_context` — rate environment, credit cycle position, policy stance, transmission paths
+- Updated `quick_take` with macro overlay
+
+**Web search queries (examples):**
+- `央行 利率 货币政策 立场 {market}`
+- `信用周期 信用利差 贷款标准 {market}`
+- `股债相关性 跨资产 信号 {year}`
+- `{stock_name} 宏观 传导 利率 汇率`
+
+### Step 4: Company Analyst
 
 **Search focus:**
 - Business model, revenue mix, customer quality
@@ -41,7 +60,27 @@ This document describes the detailed workflow for each mode in the Stock Researc
 - `recent_developments` — latest news, orders, regulatory changes
 - Evidence items with source quality scores
 
-### Step 4: Sentiment Simulator
+### Step 5: Catalyst & Event Tracker
+
+**Search focus:**
+- Upcoming earnings dates, regulatory decision timelines
+- M&A rumors, restructuring, spin-offs, activist situations
+- Insider buying/selling, share buyback/dilution plans
+- Lock-up expirations, index inclusion/exclusion
+- Product launch timelines, clinical trial results (for pharma)
+- Sector rotation catalysts
+
+**Output fields:**
+- `catalyst_calendar` — array of upcoming events with event, date, impact, direction
+- Updated `catalysts` list with near-term events
+- Updated `risks` list with event-driven risks
+
+**Web search queries (examples):**
+- `{stock_name} 财报 发布 日期 {year}`
+- `{stock_name} 内幕 交易 回购 增持`
+- `{stock_name} 催化剂 事件 监管 审批`
+
+### Step 6: Sentiment Simulator
 
 **Search focus:**
 - Public narrative flow: sell-side reports, media coverage, retail sentiment
@@ -51,7 +90,25 @@ This document describes the detailed workflow for each mode in the Stock Researc
 **Output fields:**
 - `sentiment_simulation` — how different market participants view the stock
 
-### Step 5: Comparison Analyst
+### Step 7: Technical & Flow Analyst
+
+**Search focus:**
+- Current price, recent volume, RSI/MACD context
+- Institutional ownership changes, fund flows
+- Options market data: IV, put/call ratio, skew, open interest
+- Short interest dynamics
+- Relative strength vs. index and sector
+
+**Output fields:**
+- `technical_view` — key support/resistance, trend stage, momentum signal
+- `flow_signal` — institutional flow, ETF dynamics, short interest summary
+
+**Web search queries (examples):**
+- `{stock_name} 股价 成交量 技术分析 支撑 阻力`
+- `{stock_name} 机构持仓 变动 北向 资金流入`
+- `{stock_name} 期权 隐含波动率 看跌看涨比率`
+
+### Step 8: Comparison Analyst
 
 **Search focus:**
 - Peer identification and valuation comparison
@@ -61,7 +118,24 @@ This document describes the detailed workflow for each mode in the Stock Researc
 **Output fields:**
 - `peer_comparison` — where this name sits relative to peers
 
-### Step 6: Red Team Challenge
+### Step 9: Quant & Factor Analyst
+
+**Search focus:**
+- Factor performance data: value, momentum, quality, size, volatility
+- Earnings revision momentum and statistical significance
+- Factor rotation signals and current regime classification
+- Mean-reversion probability assessment
+
+**Output fields:**
+- `factor_exposure` — object with value, momentum, quality, size, volatility ratings
+- Factor regime assessment and statistical significance notes
+
+**Web search queries (examples):**
+- `{stock_name} 因子 暴露 价值 动量 质量 {year}`
+- `A股 因子轮动 风格 切换 统计`
+- `{stock_name} 盈利修正 一致预期 变动`
+
+### Step 10: Red Team Challenge
 
 **No new search.** Uses prior evidence to:
 - Attack weak links in the bull case
@@ -73,23 +147,25 @@ This document describes the detailed workflow for each mode in the Stock Researc
 - `debate_notes` — red team dissent and weak links
 - Updated `risks` list
 
-### Step 7: Guru Council
+### Step 11: Guru Council
 
 **No new search.** Synthesizes all prior analysis:
 - Records consensus views
 - Records unresolved disagreements
 - Forces a cleaner investment conclusion
 - Sets up the scenario engine with key variables
+- Now includes quantitative and timing perspectives (Buffett/Druckenmiller/Simons blend)
 
 **Output fields:**
 - `committee_takeaways` — what the council agrees and disagrees on
 
-### Step 8: MiroFish Scenario Engine
+### Step 12: MiroFish Scenario Engine
 
 **No new search.** Projects future states:
 - Bull case with explicit triggers and time markers
 - Base case with probabilities
 - Bear case with trigger events
+- Each path includes short-term (0-3m), medium-term (3-12m), long-term (12-36m)
 
 **Output fields:**
 - `scenario_outlook` — bull/base/bear paths
@@ -98,21 +174,21 @@ This document describes the detailed workflow for each mode in the Stock Researc
 - `catalysts` — upcoming catalysts
 - `risks` — risk factors
 
-### Step 9: Price Committee
+### Step 13: Price Committee
 
-**No new search.** Assigns target prices:
-- Short-term target with time horizon and thesis
-- Medium-term target with time horizon and thesis
-- Long-term target with time horizon and thesis
-- Each price must state its dependency chain
+**Search focus:**
+- Current stock price and recent trading levels
+- Sell-side target prices and consensus estimates
+- Key catalysts and risks affecting valuation
 
 **Output fields:**
 - `target_prices` with `short_term`, `medium_term`, `long_term`
 - Each containing `price`, `horizon`, `thesis`
 
-### Step 10: Synthesis and Delivery
+### Step 14: Synthesis and Delivery
 
-- Combine all agent outputs into the final payload
+- Combine all agent outputs into the final JSON payload
+- Include all new fields: technical_view, factor_exposure, catalyst_calendar, macro_context, flow_signal
 - Generate Chinese section first
 - Generate English section (translation or structured fallback)
 - Write to `~/Desktop/<timestamp>-<ticker>.docx`
@@ -146,7 +222,7 @@ Three-pass review:
 
 ### Phase 4: Finalist Deep Research
 
-Run the full single-name research workflow (Steps 2-10 above) on each finalist.
+Run the full single-name research workflow (Steps 1-12) on each finalist.
 
 ## Watchlist Workflow
 
@@ -167,7 +243,7 @@ Run the full single-name research workflow (Steps 2-10 above) on each finalist.
 ### Running Due Entries
 
 For each entry where `next_run <= now`:
-1. Run the full single-name research workflow
+1. Run the full single-name research workflow (Steps 1-12)
 2. Generate the bilingual DOCX memo
 3. Update the entry's `next_run` and `last_report_path`
 4. Save the watchlist state

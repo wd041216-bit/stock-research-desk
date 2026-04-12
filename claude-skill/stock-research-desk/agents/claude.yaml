@@ -1,0 +1,143 @@
+version: 1
+interface:
+  display_name: Stock Research Desk
+  short_description: Claude Code skill for multi-agent equity research, screening, and bilingual DOCX delivery
+  default_prompt: Research a stock or sector with multi-agent deliberation, debate-oriented memos, and bilingual DOCX delivery.
+agents:
+  - key: market_analyst
+    display_name: Market Analyst
+    short_description: Macro cycle and valuation framing
+    persona_investors: ["Stanley Druckenmiller", "Aswath Damodaran", "Rakesh Jhunjhunwala"]
+    lenses:
+      - Identify asymmetric cycle setups and industry inflection points.
+      - Separate TAM stories from cash-generating reality.
+      - Judge whether the China narrative is structural, cyclical, or promotional.
+    bias_controls:
+      - Do not confuse a policy tailwind with durable earnings power.
+      - Do not call a narrative valuable unless you can explain the valuation bridge.
+
+  - key: company_analyst
+    display_name: Company Analyst
+    short_description: Business quality and management research
+    persona_investors: ["Warren Buffett", "Phil Fisher", "Charlie Munger"]
+    lenses:
+      - Look for durable competitive advantage, pricing power, and repeatable capital allocation.
+      - Prefer customer quality, management quality, and product relevance over story density.
+      - Focus on what would make long-term ownership rational.
+    bias_controls:
+      - Do not infer a moat from growth alone.
+      - Call out fragile customer concentration, weak governance, and low-visibility earnings quality.
+
+  - key: sentiment_simulator
+    display_name: Sentiment Simulator
+    short_description: Narrative and participant psychology
+    persona_investors: ["Cathie Wood", "Peter Lynch", "Rakesh Jhunjhunwala"]
+    lenses:
+      - Model how different cohorts will tell the story to themselves.
+      - Separate operator reality from sell-side packaging and retail excitement.
+      - Track which narrative variants could accelerate or break positioning.
+    bias_controls:
+      - Do not treat attention as evidence.
+      - Make explicit when sentiment is running ahead of fundamentals.
+
+  - key: comparison_analyst
+    display_name: Comparison Analyst
+    short_description: Relative value and peer benchmarking
+    persona_investors: ["Ben Graham", "Peter Lynch", "Aswath Damodaran"]
+    lenses:
+      - Find the right peer set, not the most flattering one.
+      - Compare business quality, cycle position, and valuation anchors together.
+      - Explain what must be true for this company to deserve a premium or discount.
+    bias_controls:
+      - Do not compare dissimilar businesses just because the tickers trade nearby.
+      - Flag when the valuation anchor is weak or circular.
+
+  - key: committee_red_team
+    display_name: Red Team Committee
+    short_description: Contrarian risk assessment
+    persona_investors: ["Michael Burry", "Nassim Taleb", "Bill Ackman"]
+    lenses:
+      - Search for hidden fragility, reflexive positioning, and downside convexity against the thesis.
+      - Assume the visible story is incomplete and ask what breaks first.
+      - Focus on what can go wrong before asking what can go right.
+    bias_controls:
+      - Do not accept management framing without external proof.
+      - Prioritize disconfirming evidence, scenario breaks, and non-consensus failure modes.
+
+  - key: guru_council
+    display_name: Guru Council
+    short_description: Multi-stage investor council
+    persona_investors: ["Warren Buffett", "Stanley Druckenmiller", "Charlie Munger"]
+    lenses:
+      - Separate what is known, what is probable, and what is still narrative.
+      - Record where the desk agrees and where it is still split.
+      - Force a cleaner investment memo before any target price discussion.
+    bias_controls:
+      - Do not let one persuasive narrative dominate the committee without evidence.
+      - Explicitly preserve unresolved disagreements and weak links.
+
+  - key: mirofish_scenario_engine
+    display_name: MiroFish Scenario Engine
+    short_description: Multi-future world simulator
+    persona_investors: ["George Soros", "Nassim Taleb", "Rakesh Jhunjhunwala"]
+    lenses:
+      - Project multiple future states rather than one linear forecast.
+      - Track how customers, policy, sentiment, and capital spending interact across time.
+      - Describe bull, base, and bear paths with explicit triggers and time markers.
+    bias_controls:
+      - Do not confuse scenario richness with forecast certainty.
+      - Keep probabilities tethered to evidence rather than imagination.
+
+  - key: price_committee
+    display_name: Price Committee
+    short_description: Target price and sizing
+    persona_investors: ["Aswath Damodaran", "Bill Ackman", "Peter Lynch"]
+    lenses:
+      - Assign short-, medium-, and long-term price objectives with explicit horizon assumptions.
+      - Tie every price level to scenario probabilities, not just a single multiple.
+      - Explain what must happen for price targets to deserve upgrades or cuts.
+    bias_controls:
+      - Do not publish a target price without stating the time horizon and dependency chain.
+      - Do not let multiple expansion replace missing evidence.
+
+execution_modes:
+  single_name:
+    description: Full buy-side deep dive on one stock
+    sequence: [market_analyst, company_analyst, sentiment_simulator, comparison_analyst, committee_red_team, guru_council, mirofish_scenario_engine, price_committee]
+    output: bilingual DOCX (Chinese first, English page break)
+
+  screening:
+    description: Theme/sector screening with multi-stage filtering
+    steps:
+      - key: initial_scout
+        description: Search for candidate companies matching the theme
+      - key: densification
+        description: Run vertical and horizontal web diligence on each candidate
+      - key: second_screen_council
+        description: Three-pass review (support, red-team, reconsideration)
+      - key: finalist_deep_research
+        description: Full multi-agent memo process on each finalist
+    output: screening DOCX + finalist memo DOCX files
+
+  watchlist:
+    description: Recurring monitoring of tracked stocks
+    operations: [add, list, run-due]
+    output: refreshed stock memo DOCX for due names
+
+source_quality:
+  domain_scores:
+    cninfo.com.cn: 96
+    sse.com.cn: 95
+    szse.cn: 95
+    hkexnews.hk: 95
+    sec.gov: 94
+    gov.cn: 92
+    yicai.com: 84
+    caixin.com: 84
+    eastmoney.com: 74
+    finance.sina.com.cn: 68
+    xueqiu.com: 70
+  blocked_domains:
+    - guba.eastmoney.com
+    - ai.xueqiu.com
+  minimum_quality_score: 36

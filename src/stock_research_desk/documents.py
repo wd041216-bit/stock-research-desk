@@ -480,7 +480,7 @@ def _add_evidence_section(doc: Document, labels: dict[str, str], evidence: list[
 
 def _add_factor_exposure_section(doc: Document, labels: dict[str, str], factor_data: dict[str, Any]) -> None:
     """Add a factor exposure table to the document."""
-    _format_paragraph(doc.add_heading(labels["factor_exposure"], level=1))
+    _format_paragraph(doc.add_heading(labels["factor_exposure"], level=1), size=HEADING1_SIZE, bold=True)
     table = doc.add_table(rows=1, cols=2)
     table.style = "Table Grid"
     headers = table.rows[0].cells
@@ -497,7 +497,7 @@ def _add_factor_exposure_section(doc: Document, labels: dict[str, str], factor_d
 
 def _add_catalyst_calendar_section(doc: Document, labels: dict[str, str], calendar: list[dict[str, str]]) -> None:
     """Add a catalyst calendar table to the document."""
-    _format_paragraph(doc.add_heading(labels["catalyst_calendar"], level=1))
+    _format_paragraph(doc.add_heading(labels["catalyst_calendar"], level=1), size=HEADING1_SIZE, bold=True)
     if not calendar:
         p = doc.add_paragraph(labels.get("no_items", "No items."))
         _format_paragraph(p, size=BODY_SIZE)
@@ -511,10 +511,10 @@ def _add_catalyst_calendar_section(doc: Document, labels: dict[str, str], calend
     headers[3].text = labels["catalyst_direction"]
     for item in calendar[:10]:
         row = table.add_row().cells
-        row[0].text = str(item.get("event", ""))
-        row[1].text = str(item.get("date", ""))
-        row[2].text = str(item.get("impact", ""))
-        row[3].text = str(item.get("direction", ""))
+        row[0].text = str(item.get("event") or "n/a")
+        row[1].text = str(item.get("date") or "n/a")
+        row[2].text = str(item.get("impact") or "n/a")
+        row[3].text = str(item.get("direction") or "n/a")
     _format_table(table)
 
 

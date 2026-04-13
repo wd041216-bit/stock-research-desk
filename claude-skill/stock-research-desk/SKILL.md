@@ -92,7 +92,7 @@ After completing research, save updated memory back to the same path. Carry forw
 
 ## Single-Name Research Workflow
 
-Run the analysis through this 12-step sequence. Each agent builds on the output of prior agents. Steps 1-4 and 6-8 use web search; steps 5, 9-11 are deliberation-only.
+Run the analysis through this 12-step sequence. Each agent builds on the output of prior agents. Steps 1-8 and 12 use web search; steps 9-11 are deliberation-only.
 
 ### Step 1: Market Analyst
 
@@ -212,7 +212,7 @@ Run the analysis through this 12-step sequence. Each agent builds on the output 
 
 **User prompt template:**
 
-> 请交叉质询以下研究结论，指出最需要继续核实的断点：{"stock_name": "{name}", "ticker": "{ticker}", "market_analyst": "{truncated}", "company_analyst": "{truncated}", "sentiment_simulator": "{truncated}", "comparison_analyst": "{truncated}"}
+> 请交叉质询以下研究结论，指出最需要继续核实的断点：{"stock_name": "{name}", "ticker": "{ticker}", "market_analyst": "{truncated}", "macro_policy_strategist": "{truncated}", "company_analyst": "{truncated}", "catalyst_event_tracker": "{truncated}", "sentiment_simulator": "{truncated}", "technical_flow_analyst": "{truncated}", "comparison_analyst": "{truncated}", "quant_factor_analyst": "{truncated}"}
 
 ### Step 10: Guru Council
 

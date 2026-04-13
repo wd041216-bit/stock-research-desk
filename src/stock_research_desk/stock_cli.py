@@ -1034,6 +1034,10 @@ def run_stock_research(
             company_analyst=company_analyst,
             sentiment_simulator=sentiment_simulator,
             comparison_analyst=comparison_analyst,
+            macro_policy_strategist=macro_policy_strategist,
+            catalyst_event_tracker=catalyst_event_tracker,
+            technical_flow_analyst=technical_flow_analyst,
+            quant_factor_analyst=quant_factor_analyst,
         ),
         verbose=verbose,
     )
@@ -1051,6 +1055,10 @@ def run_stock_research(
             company_analyst=company_analyst,
             sentiment_simulator=sentiment_simulator,
             comparison_analyst=comparison_analyst,
+            macro_policy_strategist=macro_policy_strategist,
+            catalyst_event_tracker=catalyst_event_tracker,
+            technical_flow_analyst=technical_flow_analyst,
+            quant_factor_analyst=quant_factor_analyst,
             committee_red_team=committee_red_team,
         ),
         verbose=verbose,
@@ -1069,6 +1077,10 @@ def run_stock_research(
             company_analyst=company_analyst,
             sentiment_simulator=sentiment_simulator,
             comparison_analyst=comparison_analyst,
+            macro_policy_strategist=macro_policy_strategist,
+            catalyst_event_tracker=catalyst_event_tracker,
+            technical_flow_analyst=technical_flow_analyst,
+            quant_factor_analyst=quant_factor_analyst,
             committee_red_team=committee_red_team,
             guru_council=guru_council,
         ),
@@ -1118,9 +1130,13 @@ def run_stock_research(
         market=market,
         angle=angle,
         market_analyst=market_analyst,
+        macro_policy_strategist=macro_policy_strategist,
         company_analyst=company_analyst,
+        catalyst_event_tracker=catalyst_event_tracker,
         sentiment_simulator=sentiment_simulator,
+        technical_flow_analyst=technical_flow_analyst,
         comparison_analyst=comparison_analyst,
+        quant_factor_analyst=quant_factor_analyst,
         committee_red_team=committee_red_team,
         guru_council=guru_council,
         mirofish_scenario_engine=mirofish_scenario_engine,
@@ -1194,9 +1210,13 @@ def run_stock_research(
                 },
                 "agent_outputs": {
                     market_analyst.name: market_analyst.content,
+                    macro_policy_strategist.name: macro_policy_strategist.content,
                     company_analyst.name: company_analyst.content,
+                    catalyst_event_tracker.name: catalyst_event_tracker.content,
                     sentiment_simulator.name: sentiment_simulator.content,
+                    technical_flow_analyst.name: technical_flow_analyst.content,
                     comparison_analyst.name: comparison_analyst.content,
+                    quant_factor_analyst.name: quant_factor_analyst.content,
                     committee_red_team.name: committee_red_team.content,
                     guru_council.name: guru_council.content,
                     mirofish_scenario_engine.name: mirofish_scenario_engine.content,
@@ -1211,9 +1231,13 @@ def run_stock_research(
                         role: list(get_persona_blend(role).lead_investors)
                         for role in [
                             market_analyst.name,
+                            macro_policy_strategist.name,
                             company_analyst.name,
+                            catalyst_event_tracker.name,
                             sentiment_simulator.name,
+                            technical_flow_analyst.name,
                             comparison_analyst.name,
+                            quant_factor_analyst.name,
                             committee_red_team.name,
                             guru_council.name,
                             mirofish_scenario_engine.name,
@@ -1222,9 +1246,13 @@ def run_stock_research(
                     },
                     "agent_tool_counts": {
                         market_analyst.name: len(market_analyst.tool_traces),
+                        macro_policy_strategist.name: len(macro_policy_strategist.tool_traces),
                         company_analyst.name: len(company_analyst.tool_traces),
+                        catalyst_event_tracker.name: len(catalyst_event_tracker.tool_traces),
                         sentiment_simulator.name: len(sentiment_simulator.tool_traces),
+                        technical_flow_analyst.name: len(technical_flow_analyst.tool_traces),
                         comparison_analyst.name: len(comparison_analyst.tool_traces),
+                        quant_factor_analyst.name: len(quant_factor_analyst.tool_traces),
                         committee_red_team.name: len(committee_red_team.tool_traces),
                         guru_council.name: len(guru_council.tool_traces),
                         mirofish_scenario_engine.name: len(mirofish_scenario_engine.tool_traces),
@@ -1242,9 +1270,13 @@ def run_stock_research(
         stock_name=stock_name,
         normalized=normalized,
         market_analyst=market_analyst,
+        macro_policy_strategist=macro_policy_strategist,
         company_analyst=company_analyst,
+        catalyst_event_tracker=catalyst_event_tracker,
         sentiment_simulator=sentiment_simulator,
+        technical_flow_analyst=technical_flow_analyst,
         comparison_analyst=comparison_analyst,
+        quant_factor_analyst=quant_factor_analyst,
         committee_red_team=committee_red_team,
         guru_council=guru_council,
         mirofish_scenario_engine=mirofish_scenario_engine,
@@ -3697,7 +3729,6 @@ def normalize_report_payload(
     committee_takeaways = choose_section_text(str(payload.get("committee_takeaways") or ""), council_fallback, "委员会当前共识仍不足，需继续压缩成更清晰的研究判断。", market=market)
     scenario_outlook = choose_section_text(str(payload.get("scenario_outlook") or ""), scenario_fallback, "多未来情景仍需继续补证，当前只能维持 base-case watchlist。", market=market)
     debate_notes = choose_section_text(str(payload.get("debate_notes") or ""), red_team_fallback, "当前红队质询仍不足，需继续验证关键假设。", market=market)
-    valuation_view = str(payload.get("valuation_view") or "当前版本没有足够公开证据支持更细的估值判断。")
     macro_context = choose_section_text(
         str(payload.get("macro_context") or ""),
         ((distilled_notes or {}).get("macro_policy_strategist") or {}).get("summary", ""),
@@ -3713,6 +3744,7 @@ def normalize_report_payload(
     technical_view = str(payload.get("technical_view") or "当前版本没有足够技术面数据支持更细的技术判断。")
     factor_exposure = normalize_factor_exposure(payload.get("factor_exposure"))
     catalyst_calendar = normalize_catalyst_calendar(payload.get("catalyst_calendar"))
+    valuation_view = str(payload.get("valuation_view") or "当前版本没有足够公开证据支持更细的估值判断。")
     if distilled_notes:
         bull_case = choose_section_list(bull_case, ((distilled_notes.get("company_analyst") or {}).get("bull_case") or []))
         bear_case = choose_section_list(bear_case, ((distilled_notes.get("company_analyst") or {}).get("bear_case") or []))
@@ -3811,39 +3843,6 @@ def normalize_report_payload(
         "report_markdown": report_markdown,
     }
 
-
-def normalize_factor_exposure(raw: Any) -> dict[str, str]:
-    if not isinstance(raw, dict):
-        return {"value": "n/a", "momentum": "n/a", "quality": "n/a", "size": "n/a", "volatility": "n/a"}
-    result = {}
-    for key in ("value", "momentum", "quality", "size", "volatility"):
-        val = str(raw.get(key, "")).strip().lower()
-        if val in ("high", "medium", "low", "strong", "neutral", "weak", "large", "mid", "small"):
-            result[key] = val
-        else:
-            result[key] = "n/a"
-    return result
-
-
-def normalize_catalyst_calendar(raw: Any) -> list[dict[str, str]]:
-    if not isinstance(raw, list):
-        return []
-    result = []
-    for item in raw[:10]:
-        if not isinstance(item, dict):
-            continue
-        entry = {
-            "event": str(item.get("event", "")).strip(),
-            "date": str(item.get("date", "")).strip(),
-            "impact": str(item.get("impact", "medium")).strip().lower(),
-            "direction": str(item.get("direction", "neutral")).strip().lower(),
-        }
-        if entry["impact"] not in ("high", "medium", "low"):
-            entry["impact"] = "medium"
-        if entry["direction"] not in ("bullish", "bearish", "neutral"):
-            entry["direction"] = "neutral"
-        result.append(entry)
-    return result
 
 
 def normalize_strings(value: Any) -> list[str]:
@@ -4682,9 +4681,13 @@ def save_memory_context(
     stock_name: str,
     normalized: dict[str, Any],
     market_analyst: AgentRunResult,
+    macro_policy_strategist: AgentRunResult,
     company_analyst: AgentRunResult,
+    catalyst_event_tracker: AgentRunResult,
     sentiment_simulator: AgentRunResult,
+    technical_flow_analyst: AgentRunResult,
     comparison_analyst: AgentRunResult,
+    quant_factor_analyst: AgentRunResult,
     committee_red_team: AgentRunResult,
     guru_council: AgentRunResult,
     mirofish_scenario_engine: AgentRunResult,
@@ -4709,9 +4712,13 @@ def save_memory_context(
         ],
         "agent_digest": {
             market_analyst.name: clip_text(market_analyst.content, 1000),
+            macro_policy_strategist.name: clip_text(macro_policy_strategist.content, 1000),
             company_analyst.name: clip_text(company_analyst.content, 1000),
+            catalyst_event_tracker.name: clip_text(catalyst_event_tracker.content, 1000),
             sentiment_simulator.name: clip_text(sentiment_simulator.content, 1000),
+            technical_flow_analyst.name: clip_text(technical_flow_analyst.content, 1000),
             comparison_analyst.name: clip_text(comparison_analyst.content, 1000),
+            quant_factor_analyst.name: clip_text(quant_factor_analyst.content, 1000),
             committee_red_team.name: clip_text(committee_red_team.content, 1000),
             guru_council.name: clip_text(guru_council.content, 1000),
             mirofish_scenario_engine.name: clip_text(mirofish_scenario_engine.content, 1000),
@@ -4721,9 +4728,13 @@ def save_memory_context(
             role: list(get_persona_blend(role).lead_investors)
             for role in [
                 market_analyst.name,
+                macro_policy_strategist.name,
                 company_analyst.name,
+                catalyst_event_tracker.name,
                 sentiment_simulator.name,
+                technical_flow_analyst.name,
                 comparison_analyst.name,
+                quant_factor_analyst.name,
                 committee_red_team.name,
                 guru_council.name,
                 mirofish_scenario_engine.name,
@@ -5325,13 +5336,13 @@ def derive_target_prices_from_context(text: str, *, verdict: str, ticker: str | 
         current_price = fetch_latest_price(ticker)
     if current_price is None:
         return {}
-    if verdict == "high_conviction":
+    if verdict == "bullish":
         multipliers = {
             "short_term": 1.08,
             "medium_term": 1.22,
             "long_term": 1.42,
         }
-    elif verdict == "reject":
+    elif verdict == "bearish":
         multipliers = {
             "short_term": 0.92,
             "medium_term": 0.84,

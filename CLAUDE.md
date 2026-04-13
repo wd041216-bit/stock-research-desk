@@ -1,6 +1,8 @@
-# Stock Research Desk — Claude Code Integration
+# Stock Research Desk — Claude Code Skill Branch
 
-This repository includes a Claude Code skill at `claude-skill/stock-research-desk/SKILL.md`.
+This branch contains the Claude Code skill manifest for the 12-agent multi-factor equity research pipeline.
+
+The core Python engine lives on `main`. This branch adds skill-specific files under `claude-skill/`.
 
 ## Quick Reference
 
@@ -21,7 +23,6 @@ Add {stock_name} to the watchlist with {interval} refresh cycle
 
 ## Skill Location
 
-The Claude Code skill definition is at:
 - `claude-skill/stock-research-desk/SKILL.md` — main skill manifest with full prompts, workflow, and output schema (v0.3.0, 12-agent multi-factor pipeline)
 - `claude-skill/stock-research-desk/agents/claude.yaml` — agent configuration (12 personas)
 - `claude-skill/stock-research-desk/references/workflow.md` — detailed workflow reference (12-step pipeline)
@@ -48,23 +49,25 @@ The Claude Code skill definition is at:
 
 ## Output Fields
 
-In addition to the original fields, the multi-factor pipeline produces:
-- `macro_context` — rate environment, credit cycle, policy stance
-- `flow_signal` — institutional flow, ETF dynamics, short interest
-- `technical_view` — support/resistance, trend stage, momentum signal
-- `factor_exposure` — value/momentum/quality/size/volatility ratings
-- `catalyst_calendar` — upcoming events with dates, impact, direction
+- `quick_take`, `verdict`, `confidence`
+- `business_summary`, `market_map`, `china_story`
+- `macro_context`, `flow_signal`
+- `sentiment_simulation`, `peer_comparison`
+- `technical_view`, `factor_exposure`
+- `catalyst_calendar`
+- `committee_takeaways`, `debate_notes`
+- `bull_case`, `bear_case`, `catalysts`, `risks`
+- `valuation_view`
+- `scenario_outlook` (bull/base/bear with triggers)
+- `target_prices` (short/medium/long with horizons and theses)
+- `evidence` (with source quality scores)
 
-## Two Skill Modes
+## Branches
 
-This repo ships two skill definitions:
+- **`main`** — pure agentic workflow (Python CLI engine)
+- **`claude-code-skill`** — this branch — Claude Code skill version (SKILL.md + prompts + workflow references)
 
-1. **Codex skill** (`codex-skill/`) — uses Codex as main brain, cross-validated-search as fallback
-2. **Claude Code skill** (`claude-skill/`) — uses Claude Code as main brain, WebSearch/WebFetch as primary search, Python CLI as optional fallback
-
-Both produce the same bilingual DOCX delivery format.
-
-## Core Source Files
+## Core Source Files (shared with main)
 
 | File | Purpose |
 |------|---------|
@@ -77,7 +80,7 @@ Both produce the same bilingual DOCX delivery format.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `OLLAMA_API_KEY` | required | Ollama Cloud API key (only needed for CLI mode) |
+| `OLLAMA_API_KEY` | required | Ollama Cloud API key (CLI mode) |
 | `STOCK_RESEARCH_DESK_HOME` | `~/.stock-research-desk` | Internal state directory |
 | `STOCK_RESEARCH_DESK_MODEL` | `glm-5.1:cloud` | Default model (CLI mode) |
 | `STOCK_RESEARCH_DESK_OUTPUT_DIR` | `reports` | Desktop delivery directory |

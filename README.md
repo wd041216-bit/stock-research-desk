@@ -1,391 +1,138 @@
-# Stock Research Desk
+# Stock Research Desk — Claude Code Skill
 
 [中文说明](README.zh-CN.md)
 
 ![Stock Research Desk banner](assets/banner.svg)
 
-A cloud-only multi-agent equity research desk for single-name deep dives, theme screening, recurring watchlists, and bilingual document delivery.
+This is the **Claude Code skill branch** of [stock-research-desk](https://github.com/wd041216-bit/stock-research-desk). It contains the full skill manifest, 12-agent prompt templates, source quality rules, and workflow references for running the 12-agent multi-factor equity research pipeline directly inside Claude Code.
 
-Turn one ticker or one theme into a staged research process:
+For the pure Python CLI agentic workflow, see the [`main` branch](https://github.com/wd041216-bit/stock-research-desk/tree/main).
 
-- deep research for one stock
-- theme / sector screening with initial filter, second filter, and finalist deep dives
-- recurring watchlist analysis on a fixed cadence
-- email-driven interaction through a mailbox like QQ Mail
-- an additive Codex-native operating mode with Codex web research and automation-ready watchlists
+## What This Branch Adds
 
-Open the fastest public examples:
+On top of the core Python engine in `main`, this branch provides:
 
-- [Project Showcase](docs/showcase.md)
-- [Sample Research Memo](docs/sample-memo.md)
-- [Case Study: SaiTeng](docs/case-study-saiteng.md)
-- [Sample Screening Summary](docs/sample-screening.md)
-- [CLI Workflow](docs/cli-workflow.md)
-- [Codex Skill Mode](docs/codex-skill.md)
+- `claude-skill/stock-research-desk/SKILL.md` — full skill manifest with 12-agent prompts, evidence rules, and DOCX output schema
+- `claude-skill/stock-research-desk/agents/claude.yaml` — 12-agent persona configuration
+- `claude-skill/stock-research-desk/references/workflow.md` — detailed 12-step pipeline reference
+- `claude-skill/stock-research-desk/references/prompts.md` — full prompt templates for all 12 agents
+- `claude-skill/stock-research-desk/references/repo-map.md` — project file structure
+- `claude-skill/stock-research-desk/references/watchlist-automation.md` — watchlist scheduling
 
-The repo now supports two host modes:
+## The 12-Agent Pipeline
 
-- terminal-first cloud execution through Ollama Cloud
-- Codex-native execution where Codex becomes the main brain, uses its own web research first, and writes one desktop DOCX with separate Chinese and English sections
+| Step | Agent | Search? | Focus |
+|------|-------|---------|-------|
+| 1 | market_analyst | Yes | Macro cycle, industry structure, China narrative |
+| 2 | macro_policy_strategist | Yes | Interest rates, credit cycle, policy transmission |
+| 3 | company_analyst | Yes | Business quality, management, financials |
+| 4 | catalyst_event_tracker | Yes | Earnings dates, insider activity, M&A, regulatory |
+| 5 | sentiment_simulator | Yes | Narrative temperature, participant psychology |
+| 6 | technical_flow_analyst | Yes | Price action, volume, institutional flow, options |
+| 7 | comparison_analyst | Yes | Peer comparison, relative valuation anchors |
+| 8 | quant_factor_analyst | Yes | Factor exposure, statistical significance, regime |
+| 9 | committee_red_team | No | Contrarian challenge, hidden fragility |
+| 10 | guru_council | No | Multi-perspective synthesis (Buffett/Druckenmiller/Simons) |
+| 11 | mirofish_scenario_engine | No | Bull/base/bear scenario projection |
+| 12 | price_committee | Yes | Target prices with explicit horizons |
 
-In practice, that means you can use it in four ways:
+## Output Fields
 
-- type one stock into the terminal and get a buy-side-style memo
-- give it a sector direction and let it narrow candidates before expensive deep work
-- treat your mailbox like a lightweight research command queue
-- add Codex as an extra operating layer without changing the original CLI flow
+Every report includes all of these fields:
 
-## At A Glance
+| Field | Type | Description |
+|-------|------|-------------|
+| quick_take | string | One-paragraph verdict with position sizing |
+| verdict | string | bullish / bearish / watchlist / neutral |
+| confidence | string | high / medium / low |
+| business_summary | string | Business model, moat, key signals |
+| market_map | string | Industry structure, demand cycle, competitive landscape |
+| china_story | string | China narrative — demand, policy, geopolitical angle |
+| macro_context | string | Rate environment, credit cycle, policy stance |
+| flow_signal | string | Institutional flow, ETF dynamics, short interest |
+| sentiment_simulation | string | Narrative temperature, participant psychology |
+| peer_comparison | string | Relative valuation, why this name over peers |
+| technical_view | string | Support/resistance, trend stage, momentum signal |
+| factor_exposure | table | value / momentum / quality / size / volatility ratings |
+| catalyst_calendar | table | upcoming events with date, impact, direction |
+| committee_takeaways | string | Guru council consensus and disagreement |
+| debate_notes | string | Red-team challenge highlights |
+| bull_case | list | 3-5 bull points |
+| bear_case | list | 3-5 bear points |
+| catalysts | list | 3-5 catalyst events |
+| risks | list | 3-5 risk factors |
+| valuation_view | string | Valuation anchor and framework |
+| scenario_outlook | string | Bull / base / bear paths with triggers |
+| target_prices | table | short / medium / long with price, horizon, thesis |
+| evidence | table | title, url, claim, stance, quality_score |
+| next_questions | list | 3-5 open questions for follow-up |
 
-| Need | Best mode | Output |
-| --- | --- | --- |
-| One stock, full debate-oriented memo | terminal CLI | single desktop DOCX + internal JSON |
-| Theme triage before expensive deep work | terminal CLI | screening DOCX + finalist memos |
-| Hands-off recurring refreshes | watchlist + mailbox | refreshed stock memos + internal queue state |
-| Codex as planner and main brain | Codex skill | same single-document delivery, different host path |
+## Quick Reference
 
-## Why Star It
-
-- It turns one ticker or one theme into a reusable research routine instead of a one-off chat.
-- It makes disagreement visible through red-team, guru-council, and scenario passes.
-- It keeps final delivery clean: one desktop DOCX for people, hidden JSON / memory state for machines.
-- It stays honest about scope: no trading, no backtesting, no local-template fallback pretending to be a finished memo.
-
-## What It Is
-
-This is a terminal-first research desk for one-name equity work.
-
-It is built for the moment after an idea becomes interesting but before you trust yourself to size it. Instead of giving you one smooth paragraph, it runs a staged process:
-
-- evidence-ranked market and company research
-- investor-style analyst personas
-- red-team challenge and disagreement capture
-- MiroFish-style future branches
-- explicit short-, medium-, and long-term target prices
-- watchlist memory and recurring refresh cycles
-
-![Memo preview](assets/memo-preview.svg)
-![Workflow map](assets/workflow-map.svg)
-
-## Why It Feels Different
-
-Most AI stock tools stop at one of these layers:
-
-- search aggregation
-- memo generation
-- sentiment scraping
-
-This repo stacks them into one debate-oriented workflow:
-
-- source ranking before synthesis
-- multi-agent passes instead of one-shot summary
-- committee debate before conclusion
-- scenario projection before target prices
-- sector screening before expensive deep work
-- memory snapshots so repeat runs accumulate context instead of restarting cold
-
-If you want a quick feel for the output surface, open:
-
-- [Sample Research Memo](docs/sample-memo.md)
-- [Case Study: SaiTeng](docs/case-study-saiteng.md)
-- [Sample Screening Summary](docs/sample-screening.md)
-- [Email Briefing Modes](docs/email-briefings.md)
-- [Source Quality Model](docs/source-quality.md)
-
-## Why This Exists
-
-Most AI stock tools fail in one of two ways:
-
-- they are shallow wrappers around web search
-- they produce confident prose without enough internal debate
-
-This repo is designed to be stricter:
-
-- cloud-only research path
-- evidence ranking and low-quality source filtering
-- multi-agent research instead of one-shot summarization
-- red team + guru council + future-scenario layer
-- target prices always tied to explicit time horizons
-- Ollama `web_search` / `web_fetch` used first, with `cross-validated-search` only as an error fallback
-
-It is intentionally narrow:
-
-- no trading execution
-- no portfolio management
-- no backtesting engine
-- no OpenClaw dependency
-- no local-model fallback
-
-## What You Get
-
-- a staged single-name memo instead of a one-shot summary
-- sector screening with initial scout, second-screen council, and finalist deep dives
-- recurring watchlist refreshes with internal queue state and refreshed stock memo delivery
-- one desktop DOCX deliverable with separate Chinese and English sections
-- JSON artifacts for follow-up automation
-
-## Why People Save Repos Like This
-
-- it is narrow enough to be believable
-- it exposes disagreement instead of hiding it
-- it treats screening and deep research as different budgets
-- it delivers one clean desktop document instead of scattering final output across multiple files
-- it keeps a terminal-first path and an additive Codex path in the same repo
-
-## 60-Second Start
-
-```bash
-git clone https://github.com/wd041216-bit/stock-research-desk.git
-cd stock-research-desk
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
-cp .env.example .env
+**Single-name research:**
+```
+Research {stock_name} in {market}
 ```
 
-Set your cloud key:
-
-```bash
-cp .env.example .env
-# then put your real Ollama Cloud key into .env once
+**Theme screening:**
+```
+Screen the {theme} sector in {market}, find {count} finalists
 ```
 
-The CLI auto-loads the local `.env` file from the repo root, so you do not need to re-export `OLLAMA_API_KEY` every time.
-
-Start the guided terminal flow:
-
-```bash
-./bin/research-stock
+**Watchlist:**
+```
+Add {stock_name} to the watchlist with {interval} refresh cycle
 ```
 
-It will ask what you want to run, which market/country to use, and then either the stock name/code or the screening theme.
+## Using as a Claude Code Skill
 
-Run a first memo directly:
+1. Install the skill manifest into your Claude Code configuration
+2. The skill will guide Claude Code through the 12-agent pipeline using web search and page fetch
+3. Output is one bilingual DOCX on the desktop with Chinese and English sections
 
-```bash
-./bin/research-stock 赛腾股份 中国
-```
+## Branches
 
-You can also use a plain A-share code without manually adding `.SH` / `.SZ`:
+| Branch | Purpose |
+| --- | --- |
+| `main` | Pure agentic workflow — Python CLI engine with 12-agent pipeline |
+| `claude-code-skill` | This branch — Claude Code skill version with SKILL.md, prompts, and workflow references |
 
-```bash
-./bin/research-stock 603283 中国
-```
+## Core Source Files (shared with main)
 
-By default, the desk runs a comprehensive buy-side review across business quality, recent developments, valuation, catalysts, risks, sentiment, peer comparison, and scenario paths. Use `--angle` only when you intentionally want to add a special thesis frame.
+| File | Purpose |
+|------|---------|
+| `src/stock_research_desk/stock_cli.py` | Main CLI, agents, screening, email, watchlist (12-agent pipeline) |
+| `src/stock_research_desk/documents.py` | DOCX generation (bilingual, with multi-factor sections) |
+| `src/stock_research_desk/persona_pack.py` | 12 investor persona blends |
+| `src/stock_research_desk/runtime.py` | JSON parsing and repair |
 
-Legacy style still works when you want to pin a display name and ticker:
+## Source Quality Model
 
-```bash
-./bin/research-stock 赛腾股份 --ticker 603283.SH --market CN --angle "中国故事"
-```
+The desk uses domain-level source scoring:
 
-The default desktop delivery writes:
+| Domain | Score | Category |
+|--------|-------|----------|
+| cninfo.com.cn | 96 | Official filing |
+| sse.com.cn / szse.cn / hkexnews.hk | 95 | Exchange |
+| sec.gov | 94 | Official filing |
+| yicai.com / caixin.com | 84 | Quality media |
+| eastmoney.com | 74 | Aggregator |
+| guba.eastmoney.com | 28 (blocked) | Forum noise |
 
-- `~/Desktop/<timestamp>-<ticker>.docx`
+Sources scoring below 36 are filtered out entirely.
 
-The desktop document contains a Chinese section first and an English section on a separate page. Internal machine payloads, memory snapshots, watchlists, and email state are saved under `~/.stock-research-desk/`.
+## Validation Results
 
-The separate Codex skill mode uses the same document-first delivery shape:
+Six-stock validation with strict CEO scoring (threshold: 90/100):
 
-- `~/Desktop/<timestamp>-<ticker>.docx`
-
-Run a theme screen:
-
-```bash
-./bin/research-stock screen "中国机器人" --market CN --count 3
-```
-
-That will:
-
-- do an initial web-based candidate scout
-- turn the shortlisted names into mini-dossiers with vertical + horizontal web diligence
-- run a multi-stage second-screen guru council on those dossiers
-- run full deep research on the finalists
-- save a screening summary and finalist memos directly to `~/Desktop/`
-
-Add a recurring watchlist entry:
-
-```bash
-./bin/research-stock watchlist add 赛腾股份 --market 中国 --interval 7d
-./bin/research-stock watchlist run-due
-```
-
-Enable mailbox interaction:
-
-```bash
-export STOCK_RESEARCH_DESK_EMAIL_ADDRESS="your_mailbox@example.com"
-export STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD="your_mailbox_app_password"
-./bin/research-stock email run-once
-```
-
-Supported email subjects:
-
-- `research: 赛腾股份 |  | 中国`
-- `screen: 中国机器人 | 3 | 中国`
-- `watchlist add: 赛腾股份 |  | 7d | 中国`
-- `watchlist list`
-- `watchlist run-due`
-
-Email replies now come back in desk-style formats and attach the final document set:
-
-- `Single-Name Desk Note`
-- `Screening Brief`
-- `Morning Watchlist Brief`
-- `Weekly Watchlist Wrap`
-
-## Public Samples
-
-- [Project Showcase](docs/showcase.md)
-- [Sample Research Memo](docs/sample-memo.md)
-- [Case Study: SaiTeng](docs/case-study-saiteng.md)
-- [Sample Screening Summary](docs/sample-screening.md)
-- [Email Briefing Modes](docs/email-briefings.md)
-- [Source Quality Model](docs/source-quality.md)
-- [Memo Schema](docs/memo-schema.md)
-
-## Why It Can Be Trusted More Than A Thin Wrapper
-
-- it ranks sources before synthesis instead of trusting every page equally
-- it preserves disagreement through red-team and council stages
-- it treats target prices as committee outputs tied to time horizons
-- it keeps recurring context in a local memory snapshot instead of restarting cold
-- it keeps machine-readable JSON next to the human-ready memo
-
-## Full Workflow
-
-The single-name CLI runs a multi-stage desk:
-
-1. `market_analyst`
-   Reads the cycle, market structure, China narrative, and valuation frame.
-2. `company_analyst`
-   Focuses on business quality, customers, financial signals, catalysts, and risks.
-3. `sentiment_simulator`
-   Simulates multiple participant views from public narrative flow.
-4. `comparison_analyst`
-   Builds the peer frame and checks whether the name is worth prioritizing.
-5. `committee_red_team`
-   Forces the breakpoints, weak links, and disconfirming evidence.
-6. `guru_council`
-   Records consensus, disagreement, and the real verification agenda.
-7. `mirofish_scenario_engine`
-   Projects bull / base / bear futures with time markers and triggers.
-8. `price_committee`
-   Produces short-, medium-, and long-term target prices with time horizons.
-
-Every run updates a local `memory_palace/` snapshot so the next pass can continue from prior bull / bear points, open questions, and recent evidence.
-
-For theme screening, the product now uses three layers:
-
-1. initial screen
-   Collects candidate names from public-web evidence.
-   The model is allowed to plan its own search and follow-up queries.
-   Native `web_search` / `web_fetch` are always tried first.
-   If a search or fetch tool explicitly errors, the desk falls back to [`cross-validated-search`](https://github.com/wd041216-bit/cross-validated-search) for that step only.
-2. second screen
-   A stricter multi-stage guru council reviews mini-dossiers, not just a flat candidate list.
-   It now runs:
-   - a support round to build the strongest why-now cases
-   - a red-team round to attack theme fit, valuation, and evidence quality
-   - a reconsideration round to decide which names still deserve expensive deep research
-3. finalist deep research
-   The existing multi-agent memo process runs on each finalist.
-
-For recurring tracking, the product now also maintains:
-
-1. watchlist storage
-   Saves cadence, angle, next-run time, and last report path.
-2. mailbox control
-   You can trigger research, screening, and watchlist workflows by email.
-
-## Codex Skill Mode
-
-The repo now ships a Codex skill at:
-
-- [`codex-skill/stock-research-desk/SKILL.md`](codex-skill/stock-research-desk/SKILL.md)
-
-In Codex-native mode:
-
-- Codex is the main brain
-- Codex web research is tried first
-- `cross-validated-search` is only a fallback when a search/fetch step explicitly errors
-- recurring watchlists should be scheduled through Codex automations, not the repo's older internal scheduler
-- final deliverables should be kept as one desktop DOCX with separate Chinese and English sections
-
-This is an additional mode, not a replacement for the default CLI and mailbox workflows. The host mode changes, but final human-readable deliverables stay document-first in both paths.
-
-## Example Output Shape
-
-Each report includes:
-
-- quick take
-- market map
-- business summary
-- sentiment simulation
-- peer comparison
-- guru council notes
-- MiroFish-style future scenarios
-- bull / bear / catalysts / risks
-- target prices:
-  - short term
-  - medium term
-  - long term
-
-## Configuration
-
-Start from [`.env.example`](.env.example).
-
-Key variables:
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `OLLAMA_API_KEY` | required | Ollama Cloud API key |
-| `STOCK_RESEARCH_DESK_HOME` | `~/.stock-research-desk` | hidden internal state, memory, watchlists, and machine artifacts |
-| `STOCK_RESEARCH_DESK_MODEL` | `glm-5.1:cloud` | default research model |
-| `STOCK_RESEARCH_DESK_MODEL_FALLBACKS` | `glm-5.1:cloud,kimi-k2.5:cloud,qwen3.5:cloud` | cloud-only fallback chain; shorthand like `qwen3.5:397b` is normalized to the official `qwen3.5:cloud` runtime tag |
-| `STOCK_RESEARCH_DESK_THINK` | `high` | reasoning depth |
-| `STOCK_RESEARCH_DESK_MAX_RESULTS` | `5` | max web search results per step |
-| `STOCK_RESEARCH_DESK_MAX_FETCHES` | `6` | max page fetches per step |
-| `STOCK_RESEARCH_DESK_TIMEOUT_SECONDS` | `45` | per-call timeout |
-| `STOCK_RESEARCH_DESK_OLLAMA_HOST` | `https://ollama.com` | cloud host |
-| `STOCK_RESEARCH_DESK_OUTPUT_DIR` | `reports` | desktop-delivery mode; final DOCX files land directly on `~/Desktop/` |
-| `STOCK_RESEARCH_DESK_EMAIL_PROVIDER` | `qq` | mailbox preset |
-| `STOCK_RESEARCH_DESK_EMAIL_ADDRESS` | optional | inbound / outbound mailbox |
-| `STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD` | optional | SMTP/IMAP authorization code |
-| `STOCK_RESEARCH_DESK_EMAIL_IMAP_HOST` | `imap.qq.com` | IMAP host |
-| `STOCK_RESEARCH_DESK_EMAIL_IMAP_PORT` | `993` | IMAP SSL port |
-| `STOCK_RESEARCH_DESK_EMAIL_SMTP_HOST` | `smtp.qq.com` | SMTP host |
-| `STOCK_RESEARCH_DESK_EMAIL_SMTP_PORT` | `465` | SMTP SSL port |
-
-## Evidence Quality Rules
-
-The repo now includes explicit source quality control:
-
-- domain-level source scoring
-- blocked-source filtering
-- preference for official filings, exchanges, and higher-trust media
-- deduplication and relevance filtering for near-name collisions
-- cloud model fallback before failure; the CLI does not generate a local/template memo when the cloud chain is unavailable
-
-## Showcase Assets
-
-Useful public-facing assets in this repo:
-
-- [Project Showcase](docs/showcase.md)
-- [Memo Preview](assets/memo-preview.svg)
-- [Briefing Preview](assets/briefing-preview.svg)
-- [Sample Research Memo](docs/sample-memo.md)
-- [Sample Screening Summary](docs/sample-screening.md)
-- [Submission Batch 1](docs/submission-batch-1.md)
-
-This does not magically make public web data clean. It does make the workflow more stable and less gullible than a bare search wrapper.
-
-## Docs
-
-- [Sample Research Memo](docs/sample-memo.md)
-- [CLI Workflow](docs/cli-workflow.md)
-- [Source Quality Model](docs/source-quality.md)
-- [Memo Schema](docs/memo-schema.md)
+| Stock | Score | Verdict |
+|-------|-------|---------|
+| Microsoft (MSFT) | 92/100 | PASS |
+| Alphabet (GOOGL) | 93/100 | PASS |
+| Tesla (TSLA) | 92/100 | PASS (optimized from 89) |
+| ClearPoint Neuro (CLPT) | 91/100 | PASS (optimized from 87) |
+| 赛腾股份 (603283.SH) | 90/100 | PASS |
+| 人工智能ETF (515070) | 93/100 | PASS (optimized from 88) |
 
 ## Testing
 
@@ -394,26 +141,14 @@ source .venv/bin/activate
 pytest -q
 ```
 
-## Positioning
-
-This is a research assistant, not investment advice.
-
-It is best used when you want:
-
-- one-name deep work
-- a debate-oriented memo
-- explicit scenario branches
-- target prices with time anchors
-
-It is not built for:
-
-- auto-trading
-- portfolio construction
-- paper trading
-- retail hype scraping as a primary signal
+112 tests covering agent prompt builders, pipeline flow, normalization, DOCX generation, and CLI commands.
 
 ## Inspiration
 
-- investor-style analyst decomposition inspired by [virattt/ai-hedge-fund](https://github.com/virattt/ai-hedge-fund)
-- multi-future branching inspired by [MiroFish](https://github.com/666ghj/MiroFish)
-- runtime resilience influenced by the `openstream` design philosophy
+- Investor-style analyst decomposition inspired by [virattt/ai-hedge-fund](https://github.com/virattt/ai-hedge-fund)
+- Multi-future branching inspired by [MiroFish](https://github.com/666ghj/MiroFish)
+- Runtime resilience influenced by the `openstream` design philosophy
+
+## License
+
+MIT

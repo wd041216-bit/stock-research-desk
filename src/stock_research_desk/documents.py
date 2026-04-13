@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+
+MAX_CALENDAR_ROWS = 10
+MAX_REJECTED_CANDIDATES = 8
 import re
 from typing import Any
 
@@ -122,7 +125,7 @@ def build_screening_doc_payload(*, theme: str, market: str, stage_one_candidates
                 "label": str(item.get("ticker") or item.get("company_name") or "").strip(),
                 "reason": str(item.get("exclusion_reason") or item.get("why_not_now") or item.get("rationale") or "research upside was weaker").strip(),
             }
-            for item in rejected[:8]
+            for item in rejected[:MAX_REJECTED_CANDIDATES]
         ],
     }
 
@@ -339,7 +342,10 @@ def _safe_company_label(item: dict[str, Any]) -> str:
 
 
 def _candidate_identity(item: dict[str, Any]) -> str:
-    return str(item.get("ticker") or item.get("company_name") or "").strip()
+    identity = str(item.get("ticker") or item.get("company_name") or "").strip()
+    if not identity:
+        raise ValueError(f"candidate missing both ticker and company_name: {item}")
+    return identity
 
 
 def _new_document() -> Document:
@@ -509,7 +515,7 @@ def _add_catalyst_calendar_section(doc: Document, labels: dict[str, str], calend
     headers[1].text = labels["catalyst_date"]
     headers[2].text = labels["catalyst_impact"]
     headers[3].text = labels["catalyst_direction"]
-    for item in calendar[:10]:
+    for item in calendar[:MAX_CALENDAR_ROWS]:
         row = table.add_row().cells
         row[0].text = str(item.get("event") or "n/a")
         row[1].text = str(item.get("date") or "n/a")
@@ -550,8 +556,8 @@ def _append_report_section(doc: Document, *, payload: dict[str, Any], language: 
     _add_bullet_section(doc, labels["risks"], list(payload.get("risks") or []), labels["no_items"])
     _add_heading_and_paragraph(doc, labels["valuation_view"], str(payload.get("valuation_view") or ""))
     _add_heading_and_paragraph(doc, labels["technical_view"], str(payload.get("technical_view") or ""))
-    _add_factor_exposure_section(doc, labels, payload.get("factor_exposure") or {})
-    _add_target_price_section(doc, labels, payload.get("target_prices") or {})
+    _add_factor_exposure_section(doc, labels, dict(payload.get("factor_exposure") or {}))
+    _add_target_price_section(doc, labels, dict(payload.get("target_prices") or {}))
     _add_heading_and_paragraph(doc, labels["debate_notes"], str(payload.get("debate_notes") or ""))
     _add_evidence_section(doc, labels, list(payload.get("evidence") or []))
     _add_bullet_section(doc, labels["next_questions"], list(payload.get("next_questions") or []), labels["no_items"])

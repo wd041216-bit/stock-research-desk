@@ -4,6 +4,7 @@ import argparse
 import email
 import imaplib
 import json
+import logging
 import os
 import re
 import smtplib
@@ -32,6 +33,8 @@ from .documents import (
 )
 from .persona_pack import get_persona_blend, render_persona_instruction
 from .runtime import parse_structured_response
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_HOST = "https://ollama.com"
@@ -87,6 +90,15 @@ BLOCKED_SOURCE_DOMAINS = {
 }
 
 MIN_SOURCE_QUALITY = 36
+PRICE_FETCH_TIMEOUT = 10
+MAX_CANDIDATES_SCREEN = 12
+MAX_CALENDAR_ROWS = 10
+MAX_REJECTED_CANDIDATES = 8
+MAX_CHARS_AGENT_DISTILL = 800
+
+ALLOWED_URL_DOMAINS = {
+    "push2.eastmoney.com",
+}
 SITE_CHROME_TOKENS = (
     "标签添加class",
     "新浪首页",
@@ -377,6 +389,9 @@ class EmailConfig:
     smtp_port: int
     reply_to: str
 
+    def __repr__(self) -> str:
+        return f"EmailConfig(address={self.address!r}, app_password='***', imap_host={self.imap_host!r}, imap_port={self.imap_port}, smtp_host={self.smtp_host!r}, smtp_port={self.smtp_port}, reply_to={self.reply_to!r})"
+
 
 @dataclass(slots=True)
 class StockResearchConfig:
@@ -389,6 +404,9 @@ class StockResearchConfig:
     max_fetches: int
     timeout_seconds: float
     workspace_dir: Path
+
+    def __repr__(self) -> str:
+        return f"StockResearchConfig(api_key='***', host={self.host!r}, model={self.model!r}, model_chain={self.model_chain!r}, think={self.think!r}, max_results={self.max_results}, max_fetches={self.max_fetches}, timeout_seconds={self.timeout_seconds}, workspace_dir={self.workspace_dir!r})"
     reports_dir: Path
     screens_dir: Path
     memory_dir: Path
@@ -1581,7 +1599,7 @@ def run_screening_scout(
         if isinstance(parsed, dict):
             return {"payload": parsed, "tool_traces": tool_traces}
     except Exception:
-        pass
+        logger.warning("screening synthesis parse failed, using fallback candidates", exc_info=True)
     return {"payload": {"candidates": build_screening_fallback_candidates(extract_evidence_from_traces([tool_traces]), theme=theme, market=market)}, "tool_traces": tool_traces}
 
 
@@ -1668,7 +1686,7 @@ def run_screening_scout_densification(
         if isinstance(parsed, dict):
             return {"payload": parsed, "tool_traces": tool_traces}
     except Exception:
-        pass
+        logger.warning("screening second-screen synthesis parse failed, using fallback", exc_info=True)
     return {
         "payload": {
             "candidates": build_screening_fallback_candidates(
@@ -1797,7 +1815,7 @@ def run_second_screen_committee(
                 print("[screen] council final chair completed")
             return parsed
     except Exception:
-        pass
+        logger.warning("screening council parse failed, falling back to ranked shortlist", exc_info=True)
     if verbose:
         print("[screen] council fell back to ranked shortlist")
     return fallback
@@ -2044,6 +2062,7 @@ def load_watchlist(paths: WorkspacePaths) -> list[dict[str, Any]]:
     try:
         payload = json.loads(paths.watchlist_path.read_text(encoding="utf-8"))
     except Exception:
+        logger.warning("failed to load watchlist, returning empty list", exc_info=True)
         return []
     return payload if isinstance(payload, list) else []
 
@@ -2093,6 +2112,7 @@ def load_email_state(paths: WorkspacePaths) -> dict[str, Any]:
     try:
         payload = json.loads(paths.email_state_path.read_text(encoding="utf-8"))
     except Exception:
+        logger.warning("failed to load email state, returning empty state", exc_info=True)
         return {"processed_message_ids": []}
     if not isinstance(payload, dict):
         return {"processed_message_ids": []}
@@ -3524,11 +3544,33 @@ def unique_attachment_paths(*paths: str | None) -> list[str]:
     return ordered
 
 
-def safe_run_agent_with_tools(**kwargs: Any) -> AgentRunResult:
+def safe_run_agent_with_tools(
+    *,
+    client: Client,
+    name: str,
+    model: str,
+    think: str,
+    timeout_seconds: float,
+    system_prompt: str,
+    user_prompt: str,
+    max_results: int,
+    max_fetches: int,
+    verbose: bool = False,
+) -> AgentRunResult:
     try:
-        return run_agent_with_tools(**kwargs)
+        return run_agent_with_tools(
+            client=client,
+            name=name,
+            model=model,
+            think=think,
+            timeout_seconds=timeout_seconds,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            max_results=max_results,
+            max_fetches=max_fetches,
+            verbose=verbose,
+        )
     except Exception as exc:
-        name = str(kwargs.get("name") or "agent")
         raise RuntimeError(f"{name} cloud model chain failed; report generation aborted. {exc}") from exc
 
 
@@ -4671,6 +4713,7 @@ def load_memory_context(*, memory_dir: Path, stock_name: str, ticker: str | None
             try:
                 return MemoryContext(path=candidate, payload=json.loads(candidate.read_text(encoding="utf-8")))
             except Exception:
+                logger.debug("skipping corrupt memory file %s", candidate, exc_info=True)
                 continue
     return None
 
@@ -4925,6 +4968,7 @@ def source_domain(url: str) -> str:
     try:
         hostname = urlparse(url).hostname or ""
     except Exception:
+        logger.debug("failed to parse URL hostname: %s", url, exc_info=True)
         return ""
     return hostname.lower().lstrip("www.")
 
@@ -4936,6 +4980,7 @@ def source_quality_score(url: str) -> int:
     try:
         parsed_path = urlparse(url).path.lower()
     except Exception:
+        logger.debug("failed to parse URL path: %s", url, exc_info=True)
         parsed_path = ""
     exact_overrides = {key.lower().lstrip("www."): score for key, score in DOMAIN_QUALITY_OVERRIDES.items()}
     if domain in exact_overrides:
@@ -5435,6 +5480,7 @@ def parse_iso_datetime(value: Any) -> datetime | None:
     try:
         return datetime.fromisoformat(str(value))
     except Exception:
+        logger.debug("failed to parse datetime from: %s", value, exc_info=True)
         return None
 
 
@@ -5764,14 +5810,23 @@ def fetch_latest_price(ticker: str) -> float | None:
         return None
     url = f"https://push2.eastmoney.com/api/qt/stock/get?secid={secid}&fields=f43"
     try:
-        with urlopen(url, timeout=10) as response:
+        hostname = urlparse(url).hostname or ""
+    except Exception:
+        return None
+    if hostname not in ALLOWED_URL_DOMAINS:
+        logger.warning("blocked SSRF attempt: hostname %s not in allowlist", hostname)
+        return None
+    try:
+        with urlopen(url, timeout=PRICE_FETCH_TIMEOUT) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except Exception:
+        logger.warning("failed to fetch latest price for %s", ticker, exc_info=True)
         return None
     raw = (((payload or {}).get("data") or {}).get("f43"))
     try:
         value = float(raw) / 100
     except Exception:
+        logger.debug("failed to parse price value for %s", ticker, exc_info=True)
         return None
     return value if value > 0 else None
 
@@ -5786,9 +5841,17 @@ def fetch_company_name_from_ticker(ticker: str, market: str) -> str | None:
         return None
     url = f"https://push2.eastmoney.com/api/qt/stock/get?secid={secid}&fields=f57,f58"
     try:
-        with urlopen(url, timeout=10) as response:
+        hostname = urlparse(url).hostname or ""
+    except Exception:
+        return None
+    if hostname not in ALLOWED_URL_DOMAINS:
+        logger.warning("blocked SSRF attempt: hostname %s not in allowlist", hostname)
+        return None
+    try:
+        with urlopen(url, timeout=PRICE_FETCH_TIMEOUT) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except Exception:
+        logger.warning("failed to fetch company name for %s", ticker, exc_info=True)
         return None
     data = (payload or {}).get("data") or {}
     company_name = str(data.get("f58") or "").strip()

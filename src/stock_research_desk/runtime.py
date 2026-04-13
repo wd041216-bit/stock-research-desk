@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 def parse_structured_response(raw: str) -> tuple[dict[str, Any], bool]:
@@ -24,6 +27,9 @@ def parse_structured_response(raw: str) -> tuple[dict[str, Any], bool]:
         except json.JSONDecodeError:
             balanced = balance_braces(extracted)
             return json.loads(balanced), True
+
+    if "{" not in cleaned:
+        raise json.JSONDecodeError("No JSON object found in response", cleaned, 0)
 
     balanced = balance_braces(cleaned)
     return json.loads(balanced), True

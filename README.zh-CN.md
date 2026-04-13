@@ -1,48 +1,81 @@
 # Stock Research Desk
 
-[English README](README.md)
+[English](README.md)
 
 ![Stock Research Desk banner](assets/banner.svg)
 
-`stock-research-desk` 是一个云端优先、终端优先的多 Agent 股票研究工作台。它面向单股深度研究、主题/板块筛选、watchlist 定期刷新、邮箱交互，以及 Codex Skill 模式。
+12代理多因子股票研究台——单股深度研究、主题筛选、定期观察清单、中英双语文档交付。
 
-它的目标不是替你自动交易，而是把一个股票代码、公司名或板块方向，变成一份更接近 buy-side memo 的研究文档：
+## 为什么不同
 
-- 证据源质量控制
-- 市场与公司分析
-- 多 Agent 交叉讨论
-- 红队质疑与复议
-- MiroFish 风格多未来场景
-- 短期 / 中期 / 长期目标价，并明确时间区间
-- 桌面只交付一个最终 DOCX，内部 JSON / memory / watchlist 状态隐藏保存
+大多数AI股票工具止步于搜索聚合或备忘录生成。本仓库将它们叠加为一个**辩论驱动工作流**：
 
-## 快速入口
+- **12个专业分析师台**顺序运行，每个在前置分析基础上构建
+- **多因子覆盖**：宏观、政策、催化、情绪、技术流、量化因子——不仅仅是基本面
+- **红队质询**在结论形成前强制引入反面意见
+- **大师议会**（巴菲特/德uckenmiller/西蒙斯）从三种截然不同的投资哲学综合
+- **MiroFish情景引擎**投影牛市/基准/熊市三条路径，附带明确触发器和时间范围
+- **目标价格**始终锚定明确的时间范围和投资逻辑，绝不凭空而来
 
-- [项目展示页](docs/showcase.md)
-- [示例研究 memo](docs/sample-memo.md)
-- [赛腾股份案例](docs/case-study-saiteng.md)
-- [示例筛选摘要](docs/sample-screening.md)
-- [CLI 工作流](docs/cli-workflow.md)
-- [Codex Skill 模式](docs/codex-skill.md)
+## 12代理管线
 
-## 它适合做什么
+| 步骤 | 代理 | 搜索? | 聚焦 |
+|------|------|--------|------|
+| 1 | market_analyst | 是 | 宏观周期、行业结构、中国叙事 |
+| 2 | macro_policy_strategist | 是 | 利率、信用周期、政策传导 |
+| 3 | company_analyst | 是 | 业务质量、管理层、财务 |
+| 4 | catalyst_event_tracker | 是 | 财报日期、内部人活动、并购、监管 |
+| 5 | sentiment_simulator | 是 | 叙事温度、参与者心理 |
+| 6 | technical_flow_analyst | 是 | 价格走势、成交量、机构流向、期权 |
+| 7 | comparison_analyst | 是 | 同行比较、相对估值锚 |
+| 8 | quant_factor_analyst | 是 | 因子暴露、统计显著性、制度 |
+| 9 | committee_red_team | 否 | 反面质询、隐藏脆弱性 |
+| 10 | guru_council | 否 | 多视角综合（巴菲特/德uckenmiller/西蒙斯） |
+| 11 | mirofish_scenario_engine | 否 | 牛/基/熊情景投影 |
+| 12 | price_committee | 是 | 带明确时间范围的目标价格 |
 
-| 需求 | 推荐模式 | 交付 |
+## 输出字段
+
+每份报告包含以下全部字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| quick_take | 字符串 | 一段话结论与仓位建议 |
+| verdict | 字符串 | bullish / bearish / watchlist / neutral |
+| confidence | 字符串 | high / medium / low |
+| business_summary | 字符串 | 业务模式、护城河、关键信号 |
+| market_map | 字符串 | 行业结构、需求周期、竞争格局 |
+| china_story | 字符串 | 中国叙事——需求、政策、地缘角度 |
+| macro_context | 字符串 | 利率环境、信用周期、政策立场 |
+| flow_signal | 字符串 | 机构流向、ETF动态、做空比例 |
+| sentiment_simulation | 字符串 | 叙事温度、参与者心理 |
+| peer_comparison | 字符串 | 相对估值、为什么选这个而非同行 |
+| technical_view | 字符串 | 支撑/阻力、趋势阶段、动量信号 |
+| factor_exposure | 表格 | 价值/动量/质量/规模/波动 评级 |
+| catalyst_calendar | 表格 | 即将到来的事件：日期、影响、方向 |
+| committee_takeaways | 字符串 | 大师议会共识与分歧 |
+| debate_notes | 字符串 | 红队质询要点 |
+| bull_case | 列表 | 3-5条看多理由 |
+| bear_case | 列表 | 3-5条看空理由 |
+| catalysts | 列表 | 3-5个催化事件 |
+| risks | 列表 | 3-5个风险因素 |
+| valuation_view | 字符串 | 估值锚与框架 |
+| scenario_outlook | 字符串 | 牛/基/熊路径及触发器 |
+| target_prices | 表格 | 短/中/长期目标价、时间范围、投资逻辑 |
+| evidence | 表格 | 标题、URL、论点、立场、质量评分 |
+| next_questions | 列表 | 3-5个待验证问题 |
+
+## 使用模式
+
+| 需求 | 模式 | 输出 |
 | --- | --- | --- |
-| 单股深度研究 | 终端 CLI | 一个桌面 DOCX + 内部 JSON |
-| 主题/板块候选筛选 | 终端 CLI | 筛选 DOCX + finalist memo |
-| 定期跟踪 watchlist | watchlist + 邮箱 | 到期股票 memo + 内部队列状态 |
-| 让 Codex 当主脑 | Codex Skill | 同样保持单 DOCX 交付 |
+| 单股深度研究备忘录 | 终端CLI 或 Claude Code 技能 | 单个桌面DOCX |
+| 主题筛选后再深度研究 | 终端CLI 或 Codex 技能 | 筛选DOCX + 决赛备忘录 |
+| 自动定期刷新 | 观察清单 + 邮箱 | 刷新的股票备忘录 |
+| Claude Code 主导 | `claude-skill/` | 同样DOCX，Claude Code驱动研究 |
+| Codex 主导 | `codex-skill/` | 同样DOCX，Codex驱动研究 |
 
-## 为什么值得收藏
-
-- 它不是单次聊天，而是一条可重复运行的研究流程。
-- 它把“初筛”和“深研”拆开，避免便宜候选发现伪装成高确信结论。
-- 它保留分歧：红队、股神议会、场景引擎都会进入最终判断链路。
-- 它的交付很干净：桌面只放最终 DOCX，机器状态放到隐藏工作区。
-- 它明确不做交易、回测、组合管理，也不会在云端模型不可用时用本地模板伪装成真实报告。
-
-## 60 秒上手
+## 60秒启动
 
 ```bash
 git clone https://github.com/wd041216-bit/stock-research-desk.git
@@ -51,171 +84,59 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
 cp .env.example .env
-```
-
-然后把你的 Ollama Cloud key 写入 `.env`：
-
-```bash
-OLLAMA_API_KEY=your_ollama_cloud_api_key
-```
-
-默认云端模型链是：
-
-```text
-glm-5.1:cloud -> kimi-k2.5:cloud -> qwen3.5:cloud
-```
-
-最简单的交互式启动：
-
-```bash
-./bin/research-stock
-```
-
-它会依次询问你要启动“单股分析”还是“主题/板块筛股”、市场/国家，以及具体股票或板块主题。
-
-直接运行一份单股研究：
-
-```bash
+# 在 .env 中填入你的 Ollama Cloud API Key
 ./bin/research-stock 赛腾股份 中国
 ```
 
-也可以只输入 A 股代码和国家，不需要自己补 `.SH` / `.SZ`：
+Claude Code 或 Codex 模式请查看 `claude-skill/` 和 `codex-skill/` 目录。
 
-```bash
-./bin/research-stock 603283 中国
-```
-
-默认会做综合 buy-side 研究，覆盖业务质量、最新动态、估值、催化、风险、舆情、同行对比、场景路径和目标价。只有当你明确想加特殊叙事时，才需要 `--angle`。
-
-## 输出在哪里
-
-默认用户可见交付：
-
-- `~/Desktop/<timestamp>-<ticker>.docx`
-
-这个 DOCX 里中文在前，英文另起一页，不再在桌面散落多个 watchlist 文件或 memory 文件。
-
-内部状态默认放在：
-
-- `~/.stock-research-desk/`
-
-其中包含 memory palace、watchlist 队列、内部 JSON、邮箱状态等机器可读内容。
-
-## 板块 / 主题筛选
+## 主题筛选
 
 ```bash
 ./bin/research-stock screen "中国机器人" --market CN --count 3
 ```
 
-筛选流程会分三层：
+三层筛选：初筛 → 二筛大师议会 → 决赛深度研究。
 
-- 初筛：从公开网页线索中找候选公司
-- 二筛：为候选生成 mini-dossier，并进行多阶段股神议会
-- 精筛：对 finalist 跑完整单股深研流程
-
-它不追求全市场扫描，也不接付费金融 API。它更像一个“不太在乎时间成本，但更在乎研究质量”的候选发现和深研工作流。
-
-## Watchlist
+## 观察清单
 
 ```bash
 ./bin/research-stock watchlist add 赛腾股份 --market 中国 --interval 7d
 ./bin/research-stock watchlist run-due
 ```
 
-watchlist 只在你显式添加并触发时运行。到期运行时，它会刷新对应股票 memo；队列、周期和历史状态保存在内部工作区，不会在桌面生成额外 watchlist digest 文件。
-
 ## 邮箱交互
-
-可以用 QQ 邮箱或任何支持 IMAP / SMTP app password 的邮箱作为轻量命令入口。
 
 ```bash
 export STOCK_RESEARCH_DESK_EMAIL_ADDRESS="your_mailbox@example.com"
-export STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD="your_mailbox_app_password"
+export STOCK_RESEARCH_DESK_EMAIL_APP_PASSWORD="your_app_password"
 ./bin/research-stock email run-once
 ```
 
-支持的邮件主题示例：
+## 配置
 
-- `research: 赛腾股份 |  | 中国`
-- `screen: 中国机器人 | 3 | 中国`
-- `watchlist add: 赛腾股份 |  | 7d | 中国`
-- `watchlist list`
-- `watchlist run-due`
-
-回复会采用研究台格式，例如：
-
-- `Single-Name Desk Note`
-- `Screening Brief`
-- `Morning Watchlist Brief`
-- `Weekly Watchlist Wrap`
-
-## Codex Skill 模式
-
-仓库也内置了 Codex Skill：
-
-- [`codex-skill/stock-research-desk/SKILL.md`](codex-skill/stock-research-desk/SKILL.md)
-
-在 Codex-native 模式中：
-
-- Codex 是主脑
-- 优先使用 Codex 自己的联网搜索和页面读取
-- 只有搜索或抓取明确报错时，才 fallback 到 `cross-validated-search`
-- watchlist 更推荐交给 Codex automations
-- 最终交付仍然保持一个桌面 DOCX
-
-这是一个增量模式，不会替换默认 CLI。
-
-## 配置项
-
-| 变量 | 默认值 | 说明 |
+| 变量 | 默认值 | 用途 |
 | --- | --- | --- |
-| `OLLAMA_API_KEY` | 必填 | Ollama Cloud API key |
-| `STOCK_RESEARCH_DESK_HOME` | `~/.stock-research-desk` | 隐藏内部状态、memory、watchlist 和机器产物 |
-| `STOCK_RESEARCH_DESK_MODEL` | `glm-5.1:cloud` | 默认研究模型 |
-| `STOCK_RESEARCH_DESK_MODEL_FALLBACKS` | `glm-5.1:cloud,kimi-k2.5:cloud,qwen3.5:cloud` | 只走云端的 fallback 链 |
-| `STOCK_RESEARCH_DESK_THINK` | `high` | 推理深度 |
-| `STOCK_RESEARCH_DESK_MAX_RESULTS` | `5` | 每步最大搜索结果数 |
-| `STOCK_RESEARCH_DESK_MAX_FETCHES` | `6` | 每步最大页面抓取数 |
-| `STOCK_RESEARCH_DESK_TIMEOUT_SECONDS` | `45` | 单次模型调用超时 |
-| `STOCK_RESEARCH_DESK_OLLAMA_HOST` | `https://ollama.com` | Ollama Cloud host |
+| `OLLAMA_API_KEY` | 必需 | Ollama Cloud API密钥（CLI模式） |
+| `STOCK_RESEARCH_DESK_HOME` | `~/.stock-research-desk` | 内部状态目录 |
+| `STOCK_RESEARCH_DESK_MODEL` | `glm-5.1:cloud` | 默认模型（CLI模式） |
+| `STOCK_RESEARCH_DESK_OUTPUT_DIR` | `reports` | 桌面交付目录 |
 | `STOCK_RESEARCH_DESK_EMAIL_PROVIDER` | `qq` | 邮箱预设 |
 
-## 证据质量规则
+## 来源质量模型
 
-它不会把所有网页结果一视同仁。当前 pipeline 会优先考虑：
+基于域名级别的来源评分：
 
-- 交易所、监管披露、公告和 IR 页面
-- 高质量财经媒体
-- 与公司名、ticker 和主题强相关的页面
-- 较新的公告、订单、业绩、行业催化与风险事件
+| 域名 | 分数 | 类别 |
+|------|------|------|
+| cninfo.com.cn | 96 | 官方公告 |
+| sse.com.cn / szse.cn / hkexnews.hk | 95 | 交易所 |
+| sec.gov | 94 | 官方公告 |
+| yicai.com / caixin.com | 84 | 优质媒体 |
+| eastmoney.com | 74 | 聚合器 |
+| guba.eastmoney.com | 28（已屏蔽） | 论坛噪音 |
 
-它会惩罚或过滤：
-
-- 论坛噪声
-- 低内容量行情页
-- 聚合站导航垃圾
-- 与目标公司名称相似但实体不一致的页面
-
-## 项目边界
-
-这是研究助手，不是投资建议。
-
-它不做：
-
-- 自动交易
-- 组合管理
-- paper trading
-- 回测主流程
-- 付费终端替代
-- 本地模型 fallback 到模板报告
-
-它更适合：
-
-- 单股深度研究
-- 主题候选池筛选
-- 多轮讨论和分歧保留
-- 目标价与时间区间检查
-- 反复跟踪同一个 watchlist
+评分低于36的来源将被完全过滤。
 
 ## 测试
 
@@ -224,12 +145,34 @@ source .venv/bin/activate
 pytest -q
 ```
 
+112个测试覆盖代理提示构建、管线流程、归一化、DOCX生成和CLI命令。
+
+## 验证结果
+
+6股严格CEO评分（阈值：90/100）：
+
+| 股票 | 评分 | 结果 |
+|------|------|------|
+| Microsoft (MSFT) | 92/100 | 通过 |
+| Alphabet (GOOGL) | 93/100 | 通过 |
+| Tesla (TSLA) | 92/100 | 通过（从89分优化） |
+| ClearPoint Neuro (CLPT) | 91/100 | 通过（从87分优化） |
+| 赛腾股份 (603283.SH) | 90/100 | 通过 |
+| 人工智能ETF (515070) | 93/100 | 通过（从88分优化） |
+
+## 这不是什么
+
+- 不执行交易
+- 不管理投资组合
+- 不做回测
+- 不做本地模板回退假装完成
+
 ## 灵感来源
 
-- investor-style analyst decomposition inspired by [virattt/ai-hedge-fund](https://github.com/virattt/ai-hedge-fund)
-- multi-future branching inspired by [MiroFish](https://github.com/666ghj/MiroFish)
-- runtime resilience influenced by the `openstream` design philosophy
+- 投资者风格分析师分解灵感来自 [virattt/ai-hedge-fund](https://github.com/virattt/ai-hedge-fund)
+- 多未来分支灵感来自 [MiroFish](https://github.com/666ghj/MiroFish)
+- 运行时弹性受 `openstream` 设计哲学影响
 
-## License
+## 许可证
 
 MIT

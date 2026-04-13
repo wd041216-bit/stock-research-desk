@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stock-research-desk"
-version = "0.5.0"
-description = "Multi-agent equity research desk for single-name deep dives, theme screening, watchlists, and bilingual memo delivery."
+version = "1.0.0"
+description = "12-agent multi-factor equity research desk with macro, catalyst, technical, and quant desks — single-name deep dives, theme screening, watchlists, and bilingual DOCX delivery."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -22,7 +22,7 @@ keywords = [
   "docx"
 ]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Environment :: Console",
   "Intended Audience :: Financial and Insurance Industry",
   "Intended Audience :: Developers",

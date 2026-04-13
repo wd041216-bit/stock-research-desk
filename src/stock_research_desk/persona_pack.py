@@ -229,21 +229,24 @@ PERSONA_PACK: dict[str, PersonaBlend] = {
 
 def get_persona_blend(role_key: str) -> PersonaBlend:
     try:
-        return PERSONA_PACK[role_key]
+        persona = PERSONA_PACK[role_key]
     except KeyError as exc:
         raise KeyError(f"Unknown persona role: {role_key}") from exc
+    if persona.role_key != role_key:
+        raise ValueError(f"Persona role_key mismatch: dict key={role_key!r}, persona.role_key={persona.role_key!r}")
+    return persona
 
 
 def render_persona_instruction(role_key: str) -> str:
     persona = get_persona_blend(role_key)
     investors = ", ".join(persona.lead_investors)
-    lenses = " ".join(f"- {item}" for item in persona.primary_lenses)
-    controls = " ".join(f"- {item}" for item in persona.bias_controls)
+    lenses = "\n".join(f"- {item}" for item in persona.primary_lenses)
+    controls = "\n".join(f"- {item}" for item in persona.bias_controls)
     return (
         f"Adopt the following blended desk identity: {persona.title}. "
         f"Think like {investors}. "
-        f"Analytical style: {persona.style_summary} "
-        f"Primary lenses: {lenses} "
-        f"Bias controls: {controls} "
+        f"Analytical style: {persona.style_summary}\n"
+        f"Primary lenses:\n{lenses}\n"
+        f"Bias controls:\n{controls}\n"
         "Use these names as analytical heuristics, not theatrical roleplay."
     )

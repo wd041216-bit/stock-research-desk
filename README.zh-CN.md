@@ -69,11 +69,9 @@
 
 | 需求 | 模式 | 输出 |
 | --- | --- | --- |
-| 单股深度研究备忘录 | 终端CLI 或 Claude Code 技能 | 单个桌面DOCX |
-| 主题筛选后再深度研究 | 终端CLI 或 Codex 技能 | 筛选DOCX + 决赛备忘录 |
+| 单股深度研究备忘录 | 终端CLI | 单个桌面DOCX |
+| 主题筛选后再深度研究 | 终端CLI | 筛选DOCX + 决赛备忘录 |
 | 自动定期刷新 | 观察清单 + 邮箱 | 刷新的股票备忘录 |
-| Claude Code 主导 | `claude-skill/` | 同样DOCX，Claude Code驱动研究 |
-| Codex 主导 | `codex-skill/` | 同样DOCX，Codex驱动研究 |
 
 ## 60秒启动
 
@@ -88,7 +86,14 @@ cp .env.example .env
 ./bin/research-stock 赛腾股份 中国
 ```
 
-Claude Code 或 Codex 模式请查看 `claude-skill/` 和 `codex-skill/` 目录。
+Claude Code 集成请查看 [`claude-code-skill` 分支](https://github.com/wd041216-bit/stock-research-desk/tree/claude-code-skill)，包含完整的12代理提示模板、来源质量规则和中英双语DOCX交付说明。
+
+## 分支
+
+| 分支 | 用途 |
+| --- | --- |
+| `main` | 纯 agentic workflow — Python CLI 引擎，12代理管线 |
+| `claude-code-skill` | Claude Code 技能版本 — SKILL.md、提示词、工作流参考 |
 
 ## 主题筛选
 

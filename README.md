@@ -69,11 +69,9 @@ Every report includes all of these fields:
 
 | Need | Mode | Output |
 | --- | --- | --- |
-| One stock, full debate-oriented memo | terminal CLI or Claude Code skill | single desktop DOCX |
-| Theme triage before expensive deep work | terminal CLI or Codex skill | screening DOCX + finalist memos |
+| One stock, full debate-oriented memo | terminal CLI | single desktop DOCX |
+| Theme triage before expensive deep work | terminal CLI | screening DOCX + finalist memos |
 | Hands-off recurring refreshes | watchlist + mailbox | refreshed stock memos |
-| Claude Code as main brain | `claude-skill/` | same DOCX, Claude Code drives research |
-| Codex as main brain | `codex-skill/` | same DOCX, Codex drives research |
 
 ## 60-Second Start
 
@@ -88,24 +86,14 @@ cp .env.example .env
 ./bin/research-stock 赛腾股份 中国
 ```
 
-For Claude Code or Codex, see the skill manifests in `claude-skill/` and `codex-skill/`.
+For Claude Code integration, see the [`claude-code-skill` branch](https://github.com/wd041216-bit/stock-research-desk/tree/claude-code-skill) which contains the full skill manifest with 12-agent prompt templates, source quality rules, and bilingual DOCX delivery instructions.
 
-## Claude Code Skill
+## Branches
 
-The repo ships a Claude Code skill at `claude-skill/stock-research-desk/SKILL.md` with:
-
-- Full 12-agent prompt templates
-- Source quality scoring rules (minimum threshold 36)
-- Bilingual DOCX delivery instructions
-- Watchlist automation reference
-
-## Codex Skill
-
-The repo also ships a Codex skill at `codex-skill/stock-research-desk/SKILL.md` with:
-
-- Codex as main brain, `cross-validated-search` as fallback
-- 12-agent multi-factor pipeline
-- Same bilingual DOCX delivery
+| Branch | Purpose |
+| --- | --- |
+| `main` | Pure agentic workflow — Python CLI engine with 12-agent pipeline |
+| `claude-code-skill` | Claude Code skill version — SKILL.md, prompts, workflow references |
 
 ## Theme Screening
 
